@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Lauren Liv — ניהול</title>
+  <title>כפר יונה נוער — מעקב הגעה</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
@@ -90,11 +90,11 @@
 
     /* Badges */
     .badge { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 100px; font-size: 12px; font-weight: 500; white-space: nowrap; }
-    .badge-pending { background: var(--amber-light); color: var(--amber); }
-    .badge-approved { background: var(--accent); color: var(--white); }
-    .badge-rejected { background: var(--red-light); color: var(--red); }
-    .badge-overdue { background: #FEE2E2; color: #991B1B; font-weight: 700; animation: pulse-red 1.8s ease-in-out infinite; }
-    @keyframes pulse-red { 0%,100% { opacity: 1; } 50% { opacity: 0.65; } }
+    .badge-active { background: var(--green-light); color: var(--green); }
+    .badge-inactive { background: var(--gray-100); color: var(--gray-500); }
+    .badge-present { background: var(--green-light); color: var(--green); }
+    .badge-late { background: var(--amber-light); color: var(--amber); }
+    .badge-absent { background: var(--red-light); color: var(--red); }
 
     /* Tables */
     .table-wrapper { overflow-x: auto; }
@@ -106,6 +106,7 @@
     tbody td { padding: 15px 14px; font-size: 14px; color: var(--gray-600); }
     .td-bold { font-weight: 600; color: var(--black); }
     .td-desc { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; color: var(--gray-400); }
+    tr.clickable { cursor: pointer; }
 
     /* Buttons */
     .btn { display: inline-flex; align-items: center; gap: 7px; padding: 9px 18px; border-radius: 9px; font-size: 14px; font-weight: 500; cursor: pointer; transition: all 0.13s; border: none; font-family: var(--font); line-height: 1; }
@@ -140,37 +141,39 @@
     .form-control::placeholder { color: var(--gray-300); }
     textarea.form-control { resize: vertical; min-height: 90px; }
     select.form-control { cursor: pointer; }
+    .form-check { display: flex; align-items: center; gap: 8px; }
     .form-actions { display: flex; gap: 10px; margin-top: 26px; }
-
-    /* Finances */
-    .finances-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start; }
-    .finance-total { font-size: 28px; font-weight: 700; letter-spacing: -0.5px; margin: 14px 0 4px; }
-    .finance-total.green { color: var(--green); }
-    .finance-total.red { color: var(--red); }
-    .finance-count { font-size: 12px; color: var(--gray-400); margin-bottom: 18px; }
-    .divider { height: 1px; background: var(--gray-100); margin: 4px 0 12px; }
-    .finance-item { display: flex; align-items: center; justify-content: space-between; padding: 13px 0; border-bottom: 1px solid var(--gray-100); }
-    .finance-item:last-child { border-bottom: none; }
-    .finance-item-info { flex: 1; min-width: 0; }
-    .finance-item-name { font-size: 14px; font-weight: 500; color: var(--black); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .finance-item-date { font-size: 12px; color: var(--gray-400); margin-top: 2px; }
-    .finance-item-right { display: flex; align-items: center; gap: 6px; flex-shrink: 0; margin-right: 12px; }
-    .finance-amount { font-size: 14px; font-weight: 600; white-space: nowrap; }
-    .finance-amount.green { color: var(--green); }
-    .finance-amount.red { color: var(--red); }
-
-    /* Net Banner */
-    .net-banner { background: linear-gradient(135deg, #0D1B3E 0%, #1A3A7A 100%); color: var(--white); border-radius: 16px; padding: 22px 28px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; box-shadow: 0 4px 20px rgba(13,27,62,0.2); }
-    .net-banner-label { font-size: 12px; color: rgba(255,255,255,0.4); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
-    .net-banner-value { font-size: 28px; font-weight: 700; letter-spacing: -0.5px; }
-    .net-banner-stats { display: flex; gap: 36px; }
-    .net-stat-label { font-size: 11px; color: rgba(255,255,255,0.4); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.4px; }
-    .net-stat-value { font-size: 16px; font-weight: 600; }
 
     /* Empty State */
     .empty-state { text-align: center; padding: 52px 20px; }
     .empty-icon { font-size: 32px; margin-bottom: 10px; }
     .empty-text { font-size: 14px; color: var(--gray-400); }
+
+    /* Attendance marking */
+    .attendance-toggle-group { display: flex; gap: 6px; flex-shrink: 0; }
+    .toggle-btn { padding: 8px 13px; border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer; border: 1.5px solid var(--gray-200); background: transparent; color: var(--gray-400); font-family: var(--font); transition: all 0.13s; white-space: nowrap; }
+    .toggle-btn:hover { border-color: var(--gray-400); }
+    .toggle-btn.present.active { background: var(--green); border-color: var(--green); color: var(--white); }
+    .toggle-btn.late.active { background: var(--amber); border-color: var(--amber); color: var(--white); }
+    .toggle-btn.absent.active { background: var(--red); border-color: var(--red); color: var(--white); }
+
+    .player-row { display: flex; align-items: center; justify-content: space-between; padding: 14px 0; border-bottom: 1px solid var(--gray-100); gap: 14px; flex-wrap: wrap; }
+    .player-row:last-child { border-bottom: none; }
+    .player-row-info { min-width: 0; flex: 1; }
+    .player-row-name { font-size: 14px; font-weight: 600; color: var(--black); }
+    .player-row-pos { font-size: 12px; color: var(--gray-400); margin-top: 2px; }
+
+    .pct-good { color: var(--green); font-weight: 700; }
+    .pct-mid { color: var(--amber); font-weight: 700; }
+    .pct-low { color: var(--red); font-weight: 700; }
+    .pct-none { color: var(--gray-300); }
+
+    .session-summary { display: flex; gap: 20px; margin-bottom: 22px; flex-wrap: wrap; }
+    .session-summary-item { font-size: 13px; color: var(--gray-500); }
+    .session-summary-item b { color: var(--black); font-size: 15px; }
+
+    .back-link { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--gray-500); cursor: pointer; background: none; border: none; font-family: var(--font); margin-bottom: 14px; padding: 4px 0; }
+    .back-link:hover { color: var(--accent); }
 
     /* ── Mobile ─────────────────────────────────────────────────── */
     @media (max-width: 768px) {
@@ -205,13 +208,6 @@
       .stat-card { padding: 16px 18px; }
       .stat-value { font-size: 22px; }
 
-      /* Net Banner */
-      .net-banner { flex-direction: column; gap: 16px; align-items: flex-start; padding: 20px; }
-      .net-banner-stats { gap: 24px; }
-
-      /* Finances */
-      .finances-grid { grid-template-columns: 1fr; }
-
       /* Table → larger touch targets */
       tbody td { padding: 18px 10px; }
       thead th { padding: 10px; }
@@ -230,6 +226,12 @@
       /* Filter tabs */
       .filter-tabs { gap: 6px; }
       .filter-tab { padding: 8px 14px; font-size: 13px; }
+
+      /* Attendance marking */
+      .toggle-btn { padding: 11px 14px; font-size: 13px; }
+      .player-row { padding: 16px 0; }
+      .attendance-toggle-group { width: 100%; }
+      .toggle-btn { flex: 1; }
     }
   </style>
 </head>
@@ -250,31 +252,38 @@ const sb = createClient(
 )
 
 // ── Utilities ──────────────────────────────────────────────────────
-const DEFAULT_DATA = { proposals: [], incomes: [], expenses: [] }
-
-const fmt = (amount) =>
-  new Intl.NumberFormat('he-IL', { style: 'currency', currency: 'ILS', maximumFractionDigits: 0 }).format(amount)
+const DEFAULT_DATA = { players: [], sessions: [], attendance: [] }
 
 const today = () => new Date().toISOString().split('T')[0]
+const fmtDate = (d) => new Date(d).toLocaleDateString('he-IL')
 
-const STATUS_LABELS = { pending: 'ממתין', approved: 'אושר', rejected: 'נדחה' }
-const STATUS_CLASSES = { pending: 'badge-pending', approved: 'badge-approved', rejected: 'badge-rejected' }
-const isOverdue = (p) => p.status === 'pending' && p.date < today()
-const badgeClass = (p) => isOverdue(p) ? 'badge-overdue' : STATUS_CLASSES[p.status]
-const badgeLabel = (p) => isOverdue(p) ? '⚠ באיחור' : STATUS_LABELS[p.status]
+const STATUS_LABELS = { present: 'נוכח', late: 'באיחור', absent: 'נעדר' }
+const STATUS_BADGE   = { present: 'badge-present', late: 'badge-late', absent: 'badge-absent' }
+
+const attendanceForSession = (attendance, sessionId) => attendance.filter(a => a.session_id === sessionId)
+const attendanceForPlayer  = (attendance, playerId)  => attendance.filter(a => a.player_id === playerId)
+
+const pctOf = (records) => {
+  if (records.length === 0) return null
+  const attended = records.filter(r => r.status === 'present' || r.status === 'late').length
+  return Math.round((attended / records.length) * 100)
+}
+
+const pctClass = (pct) => pct === null ? 'pct-none' : pct >= 80 ? 'pct-good' : pct >= 50 ? 'pct-mid' : 'pct-low'
 
 // ── Sidebar ────────────────────────────────────────────────────────
 function Sidebar({ activeTab, setActiveTab }) {
   const nav = [
-    { id: 'dashboard', label: 'דשבורד', icon: '⊞' },
-    { id: 'proposals', label: 'הצעות',  icon: '◈' },
-    { id: 'finances',  label: 'כספים',  icon: '◎' },
+    { id: 'dashboard', label: 'דשבורד',       icon: '⊞' },
+    { id: 'players',   label: 'שחקנים',       icon: '◈' },
+    { id: 'sessions',  label: 'אימונים',       icon: '◎' },
+    { id: 'report',    label: 'דוח נוכחות',    icon: '▤' },
   ]
   return html`
     <aside class="sidebar">
       <div class="sidebar-brand">
-        <div class="sidebar-brand-name">Lauren Liv</div>
-        <span class="sidebar-brand-tag">ניהול סושיאל · עידו בן גיגי</span>
+        <div class="sidebar-brand-name">כפר יונה נוער</div>
+        <span class="sidebar-brand-tag">מעקב הגעה · עידו בן גיגי</span>
       </div>
       <nav class="sidebar-nav">
         ${nav.map(item => html`
@@ -288,78 +297,77 @@ function Sidebar({ activeTab, setActiveTab }) {
           </button>
         `)}
       </nav>
-      <div class="sidebar-footer">© ${new Date().getFullYear()} Lauren Management</div>
+      <div class="sidebar-footer">© ${new Date().getFullYear()} כפר יונה נוער</div>
     </aside>
   `
 }
 
 // ── Dashboard ──────────────────────────────────────────────────────
-function Dashboard({ proposals, incomes, expenses, setActiveTab }) {
-  const totalIncome   = incomes.reduce((s, i) => s + Number(i.amount), 0)
-  const totalExpenses = expenses.reduce((s, e) => s + Number(e.amount), 0)
-  const net     = totalIncome - totalExpenses
-  const pending = proposals.filter(p => p.status === 'pending').length
-  const recent  = [...proposals].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 5)
+function Dashboard({ players, sessions, attendance, onOpenSession, setActiveTab }) {
+  const activePlayers = players.filter(p => p.active)
+  const pct = pctOf(attendance)
+  const recent = [...sessions].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 5)
 
   return html`
     <div>
       <div class="page-header">
-        <h1 class="page-title">שלום לורן 👋</h1>
-        <p class="page-subtitle">ריכוז כל הפעילות של לורן</p>
+        <h1 class="page-title">שלום עידו 👋</h1>
+        <p class="page-subtitle">מעקב הגעה — קבוצת הנוער, כפר יונה</p>
       </div>
 
       <div class="stats-grid">
         <div class="stat-card">
-          <div class="stat-label">הכנסות</div>
-          <div class="stat-value green">${fmt(totalIncome)}</div>
-          <div class="stat-meta">${incomes.length} עסקאות</div>
+          <div class="stat-label">שחקנים פעילים</div>
+          <div class="stat-value">${activePlayers.length}</div>
+          <div class="stat-meta">מתוך ${players.length} ברשימה</div>
         </div>
         <div class="stat-card">
-          <div class="stat-label">הוצאות</div>
-          <div class="stat-value red">${fmt(totalExpenses)}</div>
-          <div class="stat-meta">${expenses.length} עסקאות</div>
+          <div class="stat-label">אימונים</div>
+          <div class="stat-value">${sessions.length}</div>
+          <div class="stat-meta">מתחילת העונה</div>
         </div>
         <div class="stat-card black">
-          <div class="stat-label">רווח נקי</div>
-          <div class="stat-value">${fmt(net)}</div>
+          <div class="stat-label">נוכחות ממוצעת</div>
+          <div class="stat-value">${pct === null ? '—' : pct + '%'}</div>
         </div>
         <div class="stat-card">
-          <div class="stat-label">הצעות ממתינות</div>
-          <div class="stat-value">${pending}</div>
-          <div class="stat-meta">מתוך ${proposals.length} הצעות</div>
+          <div class="stat-label">אימון אחרון</div>
+          <div class="stat-value" style=${{ fontSize: 17 }}>${recent[0] ? fmtDate(recent[0].date) : '—'}</div>
         </div>
       </div>
 
       <div class="card">
         <div class="section-header">
-          <h2 class="section-title">הצעות אחרונות</h2>
-          <button class="btn btn-ghost" style=${{ fontSize: 13 }} onClick=${() => setActiveTab('proposals')}>
+          <h2 class="section-title">אימונים אחרונים</h2>
+          <button class="btn btn-ghost" style=${{ fontSize: 13 }} onClick=${() => setActiveTab('sessions')}>
             הצג הכל ←
           </button>
         </div>
         ${recent.length === 0 ? html`
           <div class="empty-state">
             <div class="empty-icon">📋</div>
-            <div class="empty-text">אין הצעות עדיין — לחץ על "הצעות" כדי להוסיף</div>
+            <div class="empty-text">אין אימונים עדיין — עבור ל"אימונים" כדי להוסיף</div>
           </div>
         ` : html`
           <div class="table-wrapper">
             <table>
               <thead>
-                <tr>
-                  <th>מותג</th><th>פירוט</th><th>סכום</th><th>תאריך</th><th>סטטוס</th>
-                </tr>
+                <tr><th>תאריך</th><th>הערה</th><th>נוכחים</th><th>אחוז</th></tr>
               </thead>
               <tbody>
-                ${recent.map(p => html`
-                  <tr key=${p.id}>
-                    <td class="td-bold">${p.brand}</td>
-                    <td><div class="td-desc" title=${p.description}>${p.description}</div></td>
-                    <td style=${{ fontWeight: 600 }}>${fmt(p.amount)}</td>
-                    <td style=${{ color: 'var(--gray-500)', fontSize: 13 }}>${new Date(p.date).toLocaleDateString('he-IL')}</td>
-                    <td><span class=${'badge ' + badgeClass(p)}>${badgeLabel(p)}</span></td>
-                  </tr>
-                `)}
+                ${recent.map(s => {
+                  const records = attendanceForSession(attendance, s.id)
+                  const attended = records.filter(r => r.status === 'present' || r.status === 'late').length
+                  const sPct = pctOf(records)
+                  return html`
+                    <tr key=${s.id} class="clickable" onClick=${() => onOpenSession(s.id)}>
+                      <td class="td-bold">${fmtDate(s.date)}</td>
+                      <td><div class="td-desc">${s.note || '—'}</div></td>
+                      <td>${records.length ? `${attended}/${records.length}` : '—'}</td>
+                      <td><span class=${pctClass(sPct)}>${sPct === null ? '—' : sPct + '%'}</span></td>
+                    </tr>
+                  `
+                })}
               </tbody>
             </table>
           </div>
@@ -369,65 +377,52 @@ function Dashboard({ proposals, incomes, expenses, setActiveTab }) {
   `
 }
 
-// ── Proposals ──────────────────────────────────────────────────────
-const EMPTY_PROPOSAL = { brand: '', description: '', amount: '', date: '', status: 'pending' }
+// ── Players ────────────────────────────────────────────────────────
+const EMPTY_PLAYER = { name: '', position: '', phone: '', active: true }
 
-function Proposals({ proposals, onReload }) {
-  const [filter, setFilter]     = useState('all')
+function Players({ players, attendance, onReload }) {
+  const [filter, setFilter]       = useState('active')
   const [showModal, setShowModal] = useState(false)
-  const [editId, setEditId]     = useState(null)
-  const [form, setForm]         = useState(EMPTY_PROPOSAL)
+  const [editId, setEditId]       = useState(null)
+  const [form, setForm]           = useState(EMPTY_PLAYER)
 
   const counts = {
-    all:      proposals.length,
-    overdue:  proposals.filter(p => isOverdue(p)).length,
-    pending:  proposals.filter(p => p.status === 'pending' && !isOverdue(p)).length,
-    approved: proposals.filter(p => p.status === 'approved').length,
-    rejected: proposals.filter(p => p.status === 'rejected').length,
+    all: players.length,
+    active: players.filter(p => p.active).length,
+    inactive: players.filter(p => !p.active).length,
   }
 
-  const filtered = proposals
-    .filter(p => filter === 'all' || (filter === 'overdue' ? isOverdue(p) : p.status === filter && !isOverdue(p)))
-    .sort((a, b) => new Date(b.date) - new Date(a.date))
+  const filtered = players
+    .filter(p => filter === 'all' || (filter === 'active' ? p.active : !p.active))
+    .sort((a, b) => a.name.localeCompare(b.name, 'he'))
 
-  const openAdd = () => {
-    setForm({ ...EMPTY_PROPOSAL, date: today() })
-    setEditId(null)
-    setShowModal(true)
-  }
+  const set = (field) => (e) => setForm(f => ({ ...f, [field]: field === 'active' ? e.target.checked : e.target.value }))
 
-  const openEdit = (p) => {
-    setForm({ brand: p.brand, description: p.description, amount: p.amount, date: p.date, status: p.status })
-    setEditId(p.id)
-    setShowModal(true)
-  }
-
-  const set = (field) => (e) => setForm(f => ({ ...f, [field]: e.target.value }))
+  const openAdd = () => { setForm(EMPTY_PLAYER); setEditId(null); setShowModal(true) }
+  const openEdit = (p) => { setForm({ name: p.name, position: p.position || '', phone: p.phone || '', active: p.active }); setEditId(p.id); setShowModal(true) }
 
   const handleSave = async () => {
-    if (!form.brand.trim() || !form.amount || !form.date) return
+    if (!form.name.trim()) return
     if (editId) {
-      await sb.from('proposals').update({ ...form, amount: Number(form.amount) }).eq('id', editId)
+      await sb.from('players').update(form).eq('id', editId)
     } else {
-      await sb.from('proposals').insert({ ...form, amount: Number(form.amount) })
+      await sb.from('players').insert(form)
     }
     setShowModal(false)
     onReload()
   }
 
   const handleDelete = async (id) => {
-    if (window.confirm('למחוק הצעה זו?')) {
-      await sb.from('proposals').delete().eq('id', id)
+    if (window.confirm('למחוק את השחקן? כל היסטוריית ההגעה שלו תימחק גם היא.')) {
+      await sb.from('players').delete().eq('id', id)
       onReload()
     }
   }
 
   const filterTabs = [
+    { id: 'active',   label: `פעילים (${counts.active})` },
+    { id: 'inactive', label: `לא פעילים (${counts.inactive})` },
     { id: 'all',      label: `הכל (${counts.all})` },
-    { id: 'overdue',  label: `⚠ באיחור (${counts.overdue})` },
-    { id: 'pending',  label: `ממתין (${counts.pending})` },
-    { id: 'approved', label: `אושר (${counts.approved})` },
-    { id: 'rejected', label: `נדחה (${counts.rejected})` },
   ]
 
   return html`
@@ -435,10 +430,10 @@ function Proposals({ proposals, onReload }) {
       <div class="page-header">
         <div class="page-header-row">
           <div>
-            <h1 class="page-title">הצעות</h1>
-            <p class="page-subtitle">ניהול כל הצעות העבודה של לורן</p>
+            <h1 class="page-title">שחקנים</h1>
+            <p class="page-subtitle">רשימת שחקני הקבוצה</p>
           </div>
-          <button class="btn btn-primary" onClick=${openAdd}>+ הוסף הצעה</button>
+          <button class="btn btn-primary" onClick=${openAdd}>+ הוסף שחקן</button>
         </div>
       </div>
 
@@ -453,33 +448,36 @@ function Proposals({ proposals, onReload }) {
       <div class="card">
         ${filtered.length === 0 ? html`
           <div class="empty-state">
-            <div class="empty-icon">📋</div>
+            <div class="empty-icon">👥</div>
             <div class="empty-text">
-              ${filter === 'all' ? 'אין הצעות עדיין — לחץ "+ הוסף הצעה"' : 'אין הצעות בסטטוס זה'}
+              ${filter === 'all' ? 'אין שחקנים עדיין — לחץ "+ הוסף שחקן"' : 'אין שחקנים בקטגוריה זו'}
             </div>
           </div>
         ` : html`
           <div class="table-wrapper">
             <table>
               <thead>
-                <tr><th>מותג</th><th>פירוט העבודה</th><th>סכום</th><th>תאריך</th><th>סטטוס</th><th></th></tr>
+                <tr><th>שם</th><th>תפקיד</th><th>טלפון</th><th>נוכחות</th><th>סטטוס</th><th></th></tr>
               </thead>
               <tbody>
-                ${filtered.map(p => html`
-                  <tr key=${p.id}>
-                    <td class="td-bold">${p.brand}</td>
-                    <td><div class="td-desc" title=${p.description}>${p.description}</div></td>
-                    <td style=${{ fontWeight: 600 }}>${fmt(p.amount)}</td>
-                    <td style=${{ color: 'var(--gray-500)', fontSize: 13 }}>${new Date(p.date).toLocaleDateString('he-IL')}</td>
-                    <td><span class=${'badge ' + badgeClass(p)}>${badgeLabel(p)}</span></td>
-                    <td>
-                      <div style=${{ display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
-                        <button class="btn-ghost" onClick=${() => openEdit(p)}>✏️</button>
-                        <button class="btn-danger" onClick=${() => handleDelete(p.id)}>✕</button>
-                      </div>
-                    </td>
-                  </tr>
-                `)}
+                ${filtered.map(p => {
+                  const pct = pctOf(attendanceForPlayer(attendance, p.id))
+                  return html`
+                    <tr key=${p.id}>
+                      <td class="td-bold">${p.name}</td>
+                      <td>${p.position || '—'}</td>
+                      <td>${p.phone || '—'}</td>
+                      <td><span class=${pctClass(pct)}>${pct === null ? 'אין נתונים' : pct + '%'}</span></td>
+                      <td><span class=${'badge ' + (p.active ? 'badge-active' : 'badge-inactive')}>${p.active ? 'פעיל' : 'לא פעיל'}</span></td>
+                      <td>
+                        <div style=${{ display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
+                          <button class="btn-ghost" onClick=${() => openEdit(p)}>✏️</button>
+                          <button class="btn-danger" onClick=${() => handleDelete(p.id)}>✕</button>
+                        </div>
+                      </td>
+                    </tr>
+                  `
+                })}
               </tbody>
             </table>
           </div>
@@ -489,36 +487,28 @@ function Proposals({ proposals, onReload }) {
       ${showModal && html`
         <div class="modal-overlay" onClick=${e => e.target === e.currentTarget && setShowModal(false)}>
           <div class="modal">
-            <h2 class="modal-title">${editId ? 'עריכת הצעה' : 'הצעה חדשה'}</h2>
+            <h2 class="modal-title">${editId ? 'עריכת שחקן' : 'שחקן חדש'}</h2>
 
             <div class="form-group">
-              <label class="form-label">שם המותג *</label>
-              <input class="form-control" placeholder="לדוגמה: Nike, Zara, Adidas..." value=${form.brand} onInput=${set('brand')} />
-            </div>
-            <div class="form-group">
-              <label class="form-label">פירוט העבודה *</label>
-              <textarea class="form-control" placeholder="תיאור מפורט של העבודה המבוקשת..." value=${form.description} onInput=${set('description')} />
+              <label class="form-label">שם מלא *</label>
+              <input class="form-control" placeholder="לדוגמה: יוסי כהן" value=${form.name} onInput=${set('name')} />
             </div>
             <div class="form-row">
               <div class="form-group">
-                <label class="form-label">סכום (₪) *</label>
-                <input type="number" class="form-control" placeholder="0" value=${form.amount} onInput=${set('amount')} />
+                <label class="form-label">תפקיד</label>
+                <input class="form-control" placeholder="לדוגמה: קשר" value=${form.position} onInput=${set('position')} />
               </div>
               <div class="form-group">
-                <label class="form-label">תאריך *</label>
-                <input type="date" class="form-control" value=${form.date} onInput=${set('date')} />
+                <label class="form-label">טלפון</label>
+                <input class="form-control" placeholder="050-0000000" value=${form.phone} onInput=${set('phone')} />
               </div>
             </div>
-            <div class="form-group">
-              <label class="form-label">סטטוס</label>
-              <select class="form-control" value=${form.status} onChange=${set('status')}>
-                <option value="pending">ממתין</option>
-                <option value="approved">אושר</option>
-                <option value="rejected">נדחה</option>
-              </select>
+            <div class="form-group form-check">
+              <input type="checkbox" id="active-check" checked=${form.active} onChange=${set('active')} />
+              <label for="active-check" class="form-label" style=${{ marginBottom: 0, textTransform: 'none' }}>שחקן פעיל בקבוצה</label>
             </div>
             <div class="form-actions">
-              <button class="btn btn-primary" onClick=${handleSave}>${editId ? 'שמור שינויים' : 'הוסף הצעה'}</button>
+              <button class="btn btn-primary" onClick=${handleSave}>${editId ? 'שמור שינויים' : 'הוסף שחקן'}</button>
               <button class="btn btn-outline" onClick=${() => setShowModal(false)}>ביטול</button>
             </div>
           </div>
@@ -528,137 +518,268 @@ function Proposals({ proposals, onReload }) {
   `
 }
 
-// ── Finance Section ────────────────────────────────────────────────
-const EMPTY_FIN = { name: '', amount: '', date: '', note: '' }
+// ── Session Detail (attendance marking) ───────────────────────────
+function SessionDetail({ session, players, attendance, onReload, onBack }) {
+  const records = attendanceForSession(attendance, session.id)
+  const rosterIds = new Set(players.filter(p => p.active).map(p => p.id))
+  records.forEach(r => rosterIds.add(r.player_id))
+  const roster = players.filter(p => rosterIds.has(p.id)).sort((a, b) => a.name.localeCompare(b.name, 'he'))
 
-function FinanceSection({ title, items, onAdd, onDelete, type }) {
-  const [showModal, setShowModal] = useState(false)
-  const [form, setForm]           = useState(EMPTY_FIN)
+  const [statusMap, setStatusMap] = useState({})
+  useEffect(() => {
+    const map = {}
+    records.forEach(r => { map[r.player_id] = r.status })
+    setStatusMap(map)
+  }, [attendance, session.id])
 
-  const total  = items.reduce((s, i) => s + Number(i.amount), 0)
-  const sorted = [...items].sort((a, b) => new Date(b.date) - new Date(a.date))
-  const set    = (field) => (e) => setForm(f => ({ ...f, [field]: e.target.value }))
-  const isInc  = type === 'green'
-
-  const openAdd = () => {
-    setForm({ ...EMPTY_FIN, date: today() })
-    setShowModal(true)
+  const setStatus = async (playerId, status) => {
+    setStatusMap(m => ({ ...m, [playerId]: status }))
+    await sb.from('attendance').upsert(
+      { session_id: session.id, player_id: playerId, status },
+      { onConflict: 'session_id,player_id' }
+    )
+    onReload()
   }
 
-  const handleSave = async () => {
-    if (!form.name.trim() || !form.amount || !form.date) return
-    await onAdd({ ...form, amount: Number(form.amount) })
-    setShowModal(false)
+  const markAllPresent = async () => {
+    const unmarked = roster.filter(p => !statusMap[p.id])
+    if (unmarked.length === 0) return
+    await Promise.all(unmarked.map(p =>
+      sb.from('attendance').upsert({ session_id: session.id, player_id: p.id, status: 'present' }, { onConflict: 'session_id,player_id' })
+    ))
+    onReload()
   }
+
+  const counts = { present: 0, late: 0, absent: 0 }
+  roster.forEach(p => { const s = statusMap[p.id]; if (s) counts[s]++ })
+  const unmarkedCount = roster.length - (counts.present + counts.late + counts.absent)
 
   return html`
-    <div class="card">
-      <div class="section-header">
-        <h2 class="section-title">${title}</h2>
-        <button class="btn btn-outline" style=${{ fontSize: 13, padding: '6px 13px' }} onClick=${openAdd}>+ הוסף</button>
+    <div>
+      <button class="back-link" onClick=${onBack}>→ חזרה לרשימת האימונים</button>
+      <div class="page-header">
+        <div class="page-header-row">
+          <div>
+            <h1 class="page-title">${fmtDate(session.date)}</h1>
+            <p class="page-subtitle">${session.note || 'סימון נוכחות לאימון'}</p>
+          </div>
+          <button class="btn btn-outline" onClick=${markAllPresent}>סמן הכל כנוכחים</button>
+        </div>
       </div>
-      <div class=${'finance-total ' + type}>${fmt(total)}</div>
-      <div class="finance-count">${items.length} רשומות</div>
-      <div class="divider" />
 
-      ${sorted.length === 0 ? html`
-        <div class="empty-state" style=${{ padding: '32px 0' }}>
-          <div class="empty-icon">${isInc ? '💰' : '📤'}</div>
-          <div class="empty-text">אין ${isInc ? 'הכנסות' : 'הוצאות'} עדיין</div>
-        </div>
-      ` : sorted.map(item => html`
-        <div key=${item.id} class="finance-item">
-          <div class="finance-item-info">
-            <div class="finance-item-name">${item.name}</div>
-            <div class="finance-item-date">
-              ${new Date(item.date).toLocaleDateString('he-IL')}${item.note ? ' · ' + item.note : ''}
-            </div>
-          </div>
-          <div class="finance-item-right">
-            <span class=${'finance-amount ' + type}>${fmt(item.amount)}</span>
-            <button class="btn-danger" onClick=${() => onDelete(item.id)}>✕</button>
-          </div>
-        </div>
-      `)}
+      <div class="session-summary">
+        <div class="session-summary-item"><b>${counts.present}</b> נוכחים</div>
+        <div class="session-summary-item"><b>${counts.late}</b> באיחור</div>
+        <div class="session-summary-item"><b>${counts.absent}</b> נעדרים</div>
+        ${unmarkedCount > 0 && html`<div class="session-summary-item"><b>${unmarkedCount}</b> לא סומנו</div>`}
+      </div>
 
-      ${showModal && html`
-        <div class="modal-overlay" onClick=${e => e.target === e.currentTarget && setShowModal(false)}>
-          <div class="modal">
-            <h2 class="modal-title">${isInc ? 'הכנסה חדשה' : 'הוצאה חדשה'}</h2>
-            <div class="form-group">
-              <label class="form-label">תיאור *</label>
-              <input class="form-control" placeholder=${isInc ? 'לדוגמה: שיתוף פעולה Nike' : 'לדוגמה: ציוד צילום'} value=${form.name} onInput=${set('name')} />
+      <div class="card">
+        ${roster.length === 0 ? html`
+          <div class="empty-state">
+            <div class="empty-icon">👥</div>
+            <div class="empty-text">אין שחקנים פעילים ברשימה — עבור ל"שחקנים" כדי להוסיף</div>
+          </div>
+        ` : roster.map(p => html`
+          <div key=${p.id} class="player-row">
+            <div class="player-row-info">
+              <div class="player-row-name">${p.name}</div>
+              ${p.position && html`<div class="player-row-pos">${p.position}</div>`}
             </div>
-            <div class="form-row">
-              <div class="form-group">
-                <label class="form-label">סכום (₪) *</label>
-                <input type="number" class="form-control" placeholder="0" value=${form.amount} onInput=${set('amount')} />
-              </div>
-              <div class="form-group">
-                <label class="form-label">תאריך *</label>
-                <input type="date" class="form-control" value=${form.date} onInput=${set('date')} />
-              </div>
-            </div>
-            <div class="form-group">
-              <label class="form-label">הערה</label>
-              <input class="form-control" placeholder="הערה אופציונלית..." value=${form.note} onInput=${set('note')} />
-            </div>
-            <div class="form-actions">
-              <button class="btn btn-primary" onClick=${handleSave}>הוסף</button>
-              <button class="btn btn-outline" onClick=${() => setShowModal(false)}>ביטול</button>
+            <div class="attendance-toggle-group">
+              <button class=${'toggle-btn present' + (statusMap[p.id] === 'present' ? ' active' : '')} onClick=${() => setStatus(p.id, 'present')}>נוכח</button>
+              <button class=${'toggle-btn late' + (statusMap[p.id] === 'late' ? ' active' : '')} onClick=${() => setStatus(p.id, 'late')}>איחור</button>
+              <button class=${'toggle-btn absent' + (statusMap[p.id] === 'absent' ? ' active' : '')} onClick=${() => setStatus(p.id, 'absent')}>נעדר</button>
             </div>
           </div>
-        </div>
-      `}
+        `)}
+      </div>
     </div>
   `
 }
 
-// ── Finances ───────────────────────────────────────────────────────
-function Finances({ incomes, expenses, onReload }) {
-  const totalIncome   = incomes.reduce((s, i) => s + Number(i.amount), 0)
-  const totalExpenses = expenses.reduce((s, e) => s + Number(e.amount), 0)
-  const net = totalIncome - totalExpenses
+// ── Sessions ───────────────────────────────────────────────────────
+const EMPTY_SESSION = { date: '', note: '' }
+
+function Sessions({ sessions, players, attendance, selectedId, onSelect, onReload }) {
+  const [showModal, setShowModal] = useState(false)
+  const [editId, setEditId]       = useState(null)
+  const [form, setForm]           = useState(EMPTY_SESSION)
+
+  const selected = selectedId ? sessions.find(s => s.id === selectedId) : null
+  if (selected) {
+    return html`<${SessionDetail} session=${selected} players=${players} attendance=${attendance} onReload=${onReload} onBack=${() => onSelect(null)} />`
+  }
+
+  const sorted = [...sessions].sort((a, b) => new Date(b.date) - new Date(a.date))
+  const set = (field) => (e) => setForm(f => ({ ...f, [field]: e.target.value }))
+
+  const openAdd = () => { setForm({ date: today(), note: '' }); setEditId(null); setShowModal(true) }
+  const openEdit = (s, e) => { e.stopPropagation(); setForm({ date: s.date, note: s.note || '' }); setEditId(s.id); setShowModal(true) }
+
+  const handleSave = async () => {
+    if (!form.date) return
+    if (editId) {
+      await sb.from('sessions').update(form).eq('id', editId)
+      setShowModal(false)
+      onReload()
+    } else {
+      const { data } = await sb.from('sessions').insert(form).select().single()
+      setShowModal(false)
+      onReload()
+      if (data) onSelect(data.id)
+    }
+  }
+
+  const handleDelete = async (id, e) => {
+    e.stopPropagation()
+    if (window.confirm('למחוק את האימון? נתוני הנוכחות שלו יימחקו גם הם.')) {
+      await sb.from('sessions').delete().eq('id', id)
+      onReload()
+    }
+  }
 
   return html`
     <div>
       <div class="page-header">
-        <h1 class="page-title">כספים</h1>
-        <p class="page-subtitle">ריכוז הכנסות אל מול הוצאות</p>
-      </div>
-
-      <div class="net-banner">
-        <div>
-          <div class="net-banner-label">רווח נקי</div>
-          <div class="net-banner-value">${fmt(net)}</div>
-        </div>
-        <div class="net-banner-stats">
+        <div class="page-header-row">
           <div>
-            <div class="net-stat-label">הכנסות</div>
-            <div class="net-stat-value" style=${{ color: '#4ade80' }}>${fmt(totalIncome)}</div>
+            <h1 class="page-title">אימונים</h1>
+            <p class="page-subtitle">לחץ על אימון כדי לסמן נוכחות</p>
           </div>
-          <div>
-            <div class="net-stat-label">הוצאות</div>
-            <div class="net-stat-value" style=${{ color: '#f87171' }}>${fmt(totalExpenses)}</div>
-          </div>
+          <button class="btn btn-primary" onClick=${openAdd}>+ אימון חדש</button>
         </div>
       </div>
 
-      <div class="finances-grid">
-        <${FinanceSection}
-          title="הכנסות"
-          items=${incomes}
-          onAdd=${async item => { await sb.from('incomes').insert(item); onReload() }}
-          onDelete=${async id => { await sb.from('incomes').delete().eq('id', id); onReload() }}
-          type="green"
-        />
-        <${FinanceSection}
-          title="הוצאות"
-          items=${expenses}
-          onAdd=${async item => { await sb.from('expenses').insert(item); onReload() }}
-          onDelete=${async id => { await sb.from('expenses').delete().eq('id', id); onReload() }}
-          type="red"
-        />
+      <div class="card">
+        ${sorted.length === 0 ? html`
+          <div class="empty-state">
+            <div class="empty-icon">📋</div>
+            <div class="empty-text">אין אימונים עדיין — לחץ "+ אימון חדש"</div>
+          </div>
+        ` : html`
+          <div class="table-wrapper">
+            <table>
+              <thead>
+                <tr><th>תאריך</th><th>הערה</th><th>נוכחים</th><th>אחוז</th><th></th></tr>
+              </thead>
+              <tbody>
+                ${sorted.map(s => {
+                  const records = attendanceForSession(attendance, s.id)
+                  const attended = records.filter(r => r.status === 'present' || r.status === 'late').length
+                  const sPct = pctOf(records)
+                  return html`
+                    <tr key=${s.id} class="clickable" onClick=${() => onSelect(s.id)}>
+                      <td class="td-bold">${fmtDate(s.date)}</td>
+                      <td><div class="td-desc">${s.note || '—'}</div></td>
+                      <td>${records.length ? `${attended}/${records.length}` : '—'}</td>
+                      <td><span class=${pctClass(sPct)}>${sPct === null ? '—' : sPct + '%'}</span></td>
+                      <td>
+                        <div style=${{ display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
+                          <button class="btn-ghost" onClick=${e => openEdit(s, e)}>✏️</button>
+                          <button class="btn-danger" onClick=${e => handleDelete(s.id, e)}>✕</button>
+                        </div>
+                      </td>
+                    </tr>
+                  `
+                })}
+              </tbody>
+            </table>
+          </div>
+        `}
+      </div>
+
+      ${showModal && html`
+        <div class="modal-overlay" onClick=${e => e.target === e.currentTarget && setShowModal(false)}>
+          <div class="modal">
+            <h2 class="modal-title">${editId ? 'עריכת אימון' : 'אימון חדש'}</h2>
+            <div class="form-group">
+              <label class="form-label">תאריך *</label>
+              <input type="date" class="form-control" value=${form.date} onInput=${set('date')} />
+            </div>
+            <div class="form-group">
+              <label class="form-label">הערה</label>
+              <input class="form-control" placeholder="לדוגמה: אימון כוח, משחק חימום..." value=${form.note} onInput=${set('note')} />
+            </div>
+            <div class="form-actions">
+              <button class="btn btn-primary" onClick=${handleSave}>${editId ? 'שמור שינויים' : 'צור אימון'}</button>
+              <button class="btn btn-outline" onClick=${() => setShowModal(false)}>ביטול</button>
+            </div>
+          </div>
+        </div>
+      `}
+    </div>
+  `
+}
+
+// ── Report ─────────────────────────────────────────────────────────
+function Report({ players, sessions, attendance }) {
+  const rows = players
+    .map(p => {
+      const records = attendanceForPlayer(attendance, p.id)
+      const present = records.filter(r => r.status === 'present').length
+      const late    = records.filter(r => r.status === 'late').length
+      const absent  = records.filter(r => r.status === 'absent').length
+      const pct     = pctOf(records)
+      return { player: p, marked: records.length, present, late, absent, pct }
+    })
+    .sort((a, b) => (b.pct ?? -1) - (a.pct ?? -1))
+
+  const exportCsv = () => {
+    const header = ['שם', 'תפקיד', 'אימונים שסומנו', 'נוכח', 'איחור', 'נעדר', 'אחוז נוכחות']
+    const lines = rows.map(r => [
+      r.player.name, r.player.position || '', r.marked, r.present, r.late, r.absent, r.pct === null ? '' : r.pct + '%'
+    ])
+    const csv = '﻿' + [header, ...lines].map(row => row.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n')
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `דוח-נוכחות-${today()}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  return html`
+    <div>
+      <div class="page-header">
+        <div class="page-header-row">
+          <div>
+            <h1 class="page-title">דוח נוכחות</h1>
+            <p class="page-subtitle">אחוזי הגעה לפי שחקן, לאורך העונה</p>
+          </div>
+          ${rows.length > 0 && html`<button class="btn btn-outline" onClick=${exportCsv}>ייצוא CSV</button>`}
+        </div>
+      </div>
+
+      <div class="card">
+        ${sessions.length === 0 ? html`
+          <div class="empty-state">
+            <div class="empty-icon">▤</div>
+            <div class="empty-text">אין עדיין נתוני נוכחות — התחל בהוספת אימון ושחקנים</div>
+          </div>
+        ` : html`
+          <div class="table-wrapper">
+            <table>
+              <thead>
+                <tr><th>שם</th><th>תפקיד</th><th>אימונים</th><th>נוכח</th><th>איחור</th><th>נעדר</th><th>אחוז נוכחות</th></tr>
+              </thead>
+              <tbody>
+                ${rows.map(r => html`
+                  <tr key=${r.player.id}>
+                    <td class="td-bold">${r.player.name}</td>
+                    <td>${r.player.position || '—'}</td>
+                    <td>${r.marked}</td>
+                    <td>${r.present}</td>
+                    <td>${r.late}</td>
+                    <td>${r.absent}</td>
+                    <td><span class=${pctClass(r.pct)}>${r.pct === null ? 'אין נתונים' : r.pct + '%'}</span></td>
+                  </tr>
+                `)}
+              </tbody>
+            </table>
+          </div>
+        `}
       </div>
     </div>
   `
@@ -694,7 +815,7 @@ function PinScreen({ onUnlock }) {
       padding: '0 24px',
     }}>
       <div style=${{ textAlign: 'center' }}>
-        <div style=${{ fontSize: 28, fontWeight: 800, color: 'var(--white)', marginBottom: 10, letterSpacing: -0.5 }}>Lauren Liv</div>
+        <div style=${{ fontSize: 28, fontWeight: 800, color: 'var(--white)', marginBottom: 10, letterSpacing: -0.5 }}>כפר יונה נוער</div>
         <div style=${{ fontSize: 15, color: 'rgba(255,255,255,0.4)' }}>הכנס קוד כניסה</div>
       </div>
 
@@ -764,42 +885,59 @@ function App() {
   if (!unlocked) return html`<${PinScreen} onUnlock=${() => setUnlocked(true)} />`
 
   const [activeTab, setActiveTab] = useState('dashboard')
+  const [selectedSessionId, setSelectedSessionId] = useState(null)
   const [data, setData] = useState(DEFAULT_DATA)
   const [loading, setLoading] = useState(true)
 
   const reload = async () => {
-    const [p, i, e] = await Promise.all([
-      sb.from('proposals').select('*').order('created_at', { ascending: false }),
-      sb.from('incomes').select('*').order('created_at', { ascending: false }),
-      sb.from('expenses').select('*').order('created_at', { ascending: false }),
+    const [pl, se, at] = await Promise.all([
+      sb.from('players').select('*').order('name', { ascending: true }),
+      sb.from('sessions').select('*').order('date', { ascending: false }),
+      sb.from('attendance').select('*'),
     ])
-    setData({ proposals: p.data || [], incomes: i.data || [], expenses: e.data || [] })
+    setData({ players: pl.data || [], sessions: se.data || [], attendance: at.data || [] })
     setLoading(false)
   }
 
   useEffect(() => { reload() }, [])
 
+  const changeTab = (tab) => {
+    if (tab !== 'sessions') setSelectedSessionId(null)
+    setActiveTab(tab)
+  }
+
+  const openSession = (id) => {
+    setSelectedSessionId(id)
+    setActiveTab('sessions')
+  }
+
   if (loading) return html`<div style="display:flex;align-items:center;justify-content:center;height:100vh;font-family:var(--font);font-size:16px;color:#71717a">טוען...</div>`
 
   return html`
     <div class="app-layout">
-      <${Sidebar} activeTab=${activeTab} setActiveTab=${setActiveTab} />
+      <${Sidebar} activeTab=${activeTab} setActiveTab=${changeTab} />
       <main class="main-content">
         ${activeTab === 'dashboard' && html`
           <${Dashboard}
-            proposals=${data.proposals}
-            incomes=${data.incomes}
-            expenses=${data.expenses}
-            setActiveTab=${setActiveTab}
+            players=${data.players}
+            sessions=${data.sessions}
+            attendance=${data.attendance}
+            onOpenSession=${openSession}
+            setActiveTab=${changeTab}
           />`}
-        ${activeTab === 'proposals' && html`
-          <${Proposals} proposals=${data.proposals} onReload=${reload} />`}
-        ${activeTab === 'finances' && html`
-          <${Finances}
-            incomes=${data.incomes}
-            expenses=${data.expenses}
+        ${activeTab === 'players' && html`
+          <${Players} players=${data.players} attendance=${data.attendance} onReload=${reload} />`}
+        ${activeTab === 'sessions' && html`
+          <${Sessions}
+            sessions=${data.sessions}
+            players=${data.players}
+            attendance=${data.attendance}
+            selectedId=${selectedSessionId}
+            onSelect=${setSelectedSessionId}
             onReload=${reload}
           />`}
+        ${activeTab === 'report' && html`
+          <${Report} players=${data.players} sessions=${data.sessions} attendance=${data.attendance} />`}
       </main>
     </div>
   `
