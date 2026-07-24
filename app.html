@@ -95,6 +95,7 @@
     .badge-present { background: var(--green-light); color: var(--green); }
     .badge-late { background: var(--amber-light); color: var(--amber); }
     .badge-absent { background: var(--red-light); color: var(--red); }
+    .badge-other { background: var(--gray-100); color: var(--gray-600); }
 
     /* Tables */
     .table-wrapper { overflow-x: auto; }
@@ -156,8 +157,11 @@
     .toggle-btn.present.active { background: var(--green); border-color: var(--green); color: var(--white); }
     .toggle-btn.late.active { background: var(--amber); border-color: var(--amber); color: var(--white); }
     .toggle-btn.absent.active { background: var(--red); border-color: var(--red); color: var(--white); }
+    .toggle-btn.other.active { background: var(--gray-600); border-color: var(--gray-600); color: var(--white); }
 
     .player-row { display: flex; align-items: center; justify-content: space-between; padding: 14px 0; border-bottom: 1px solid var(--gray-100); gap: 14px; flex-wrap: wrap; }
+    .player-row-note { width: 100%; margin-top: 4px; }
+    .player-row-note .form-control { padding: 8px 12px; font-size: 13px; }
     .player-row:last-child { border-bottom: none; }
     .player-row-info { min-width: 0; flex: 1; }
     .player-row-name { font-size: 14px; font-weight: 600; color: var(--black); }
@@ -257,16 +261,18 @@ const DEFAULT_DATA = { players: [], sessions: [], attendance: [] }
 const today = () => new Date().toISOString().split('T')[0]
 const fmtDate = (d) => new Date(d).toLocaleDateString('he-IL')
 
-const STATUS_LABELS = { present: 'נוכח', late: 'באיחור', absent: 'נעדר' }
-const STATUS_BADGE   = { present: 'badge-present', late: 'badge-late', absent: 'badge-absent' }
+const STATUS_LABELS = { present: 'נוכח', late: 'באיחור', absent: 'נעדר', other: 'אחר' }
+const STATUS_BADGE   = { present: 'badge-present', late: 'badge-late', absent: 'badge-absent', other: 'badge-other' }
 
 const attendanceForSession = (attendance, sessionId) => attendance.filter(a => a.session_id === sessionId)
 const attendanceForPlayer  = (attendance, playerId)  => attendance.filter(a => a.player_id === playerId)
 
+// "אחר" (חופשה/מחלה/פציעה וכו') לא נספר בכלל בתוך אחוז הנוכחות — לא נוכחות ולא היעדרות שנחשבת נגד השחקן
 const pctOf = (records) => {
-  if (records.length === 0) return null
-  const attended = records.filter(r => r.status === 'present' || r.status === 'late').length
-  return Math.round((attended / records.length) * 100)
+  const counted = records.filter(r => r.status !== 'other')
+  if (counted.length === 0) return null
+  const attended = counted.filter(r => r.status === 'present' || r.status === 'late').length
+  return Math.round((attended / counted.length) * 100)
 }
 
 const pctClass = (pct) => pct === null ? 'pct-none' : pct >= 80 ? 'pct-good' : pct >= 50 ? 'pct-mid' : 'pct-low'
@@ -357,13 +363,14 @@ function Dashboard({ players, sessions, attendance, onOpenSession, setActiveTab 
               <tbody>
                 ${recent.map(s => {
                   const records = attendanceForSession(attendance, s.id)
-                  const attended = records.filter(r => r.status === 'present' || r.status === 'late').length
+                  const counted = records.filter(r => r.status !== 'other')
+                  const attended = counted.filter(r => r.status === 'present' || r.status === 'late').length
                   const sPct = pctOf(records)
                   return html`
                     <tr key=${s.id} class="clickable" onClick=${() => onOpenSession(s.id)}>
                       <td class="td-bold">${fmtDate(s.date)}</td>
                       <td><div class="td-desc">${s.note || '—'}</div></td>
-                      <td>${records.length ? `${attended}/${records.length}` : '—'}</td>
+                      <td>${counted.length ? `${attended}/${counted.length}` : '—'}</td>
                       <td><span class=${pctClass(sPct)}>${sPct === null ? '—' : sPct + '%'}</span></td>
                     </tr>
                   `
@@ -526,16 +533,26 @@ function SessionDetail({ session, players, attendance, onReload, onBack }) {
   const roster = players.filter(p => rosterIds.has(p.id)).sort((a, b) => a.name.localeCompare(b.name, 'he'))
 
   const [statusMap, setStatusMap] = useState({})
+  const [noteMap, setNoteMap]     = useState({})
   useEffect(() => {
-    const map = {}
-    records.forEach(r => { map[r.player_id] = r.status })
-    setStatusMap(map)
+    const sMap = {}, nMap = {}
+    records.forEach(r => { sMap[r.player_id] = r.status; nMap[r.player_id] = r.note || '' })
+    setStatusMap(sMap)
+    setNoteMap(nMap)
   }, [attendance, session.id])
 
   const setStatus = async (playerId, status) => {
     setStatusMap(m => ({ ...m, [playerId]: status }))
     await sb.from('attendance').upsert(
       { session_id: session.id, player_id: playerId, status },
+      { onConflict: 'session_id,player_id' }
+    )
+    onReload()
+  }
+
+  const saveNote = async (playerId, note) => {
+    await sb.from('attendance').upsert(
+      { session_id: session.id, player_id: playerId, status: statusMap[playerId] || 'other', note },
       { onConflict: 'session_id,player_id' }
     )
     onReload()
@@ -550,9 +567,9 @@ function SessionDetail({ session, players, attendance, onReload, onBack }) {
     onReload()
   }
 
-  const counts = { present: 0, late: 0, absent: 0 }
+  const counts = { present: 0, late: 0, absent: 0, other: 0 }
   roster.forEach(p => { const s = statusMap[p.id]; if (s) counts[s]++ })
-  const unmarkedCount = roster.length - (counts.present + counts.late + counts.absent)
+  const unmarkedCount = roster.length - (counts.present + counts.late + counts.absent + counts.other)
 
   return html`
     <div>
@@ -571,6 +588,7 @@ function SessionDetail({ session, players, attendance, onReload, onBack }) {
         <div class="session-summary-item"><b>${counts.present}</b> נוכחים</div>
         <div class="session-summary-item"><b>${counts.late}</b> באיחור</div>
         <div class="session-summary-item"><b>${counts.absent}</b> נעדרים</div>
+        ${counts.other > 0 && html`<div class="session-summary-item"><b>${counts.other}</b> אחר</div>`}
         ${unmarkedCount > 0 && html`<div class="session-summary-item"><b>${unmarkedCount}</b> לא סומנו</div>`}
       </div>
 
@@ -590,7 +608,19 @@ function SessionDetail({ session, players, attendance, onReload, onBack }) {
               <button class=${'toggle-btn present' + (statusMap[p.id] === 'present' ? ' active' : '')} onClick=${() => setStatus(p.id, 'present')}>נוכח</button>
               <button class=${'toggle-btn late' + (statusMap[p.id] === 'late' ? ' active' : '')} onClick=${() => setStatus(p.id, 'late')}>איחור</button>
               <button class=${'toggle-btn absent' + (statusMap[p.id] === 'absent' ? ' active' : '')} onClick=${() => setStatus(p.id, 'absent')}>נעדר</button>
+              <button class=${'toggle-btn other' + (statusMap[p.id] === 'other' ? ' active' : '')} onClick=${() => setStatus(p.id, 'other')}>אחר</button>
             </div>
+            ${statusMap[p.id] === 'other' && html`
+              <div class="player-row-note">
+                <input
+                  class="form-control"
+                  placeholder="סיבה: חופשה / מחלה / פציעה..."
+                  value=${noteMap[p.id] || ''}
+                  onInput=${e => setNoteMap(m => ({ ...m, [p.id]: e.target.value }))}
+                  onBlur=${e => saveNote(p.id, e.target.value)}
+                />
+              </div>
+            `}
           </div>
         `)}
       </div>
@@ -666,13 +696,14 @@ function Sessions({ sessions, players, attendance, selectedId, onSelect, onReloa
               <tbody>
                 ${sorted.map(s => {
                   const records = attendanceForSession(attendance, s.id)
-                  const attended = records.filter(r => r.status === 'present' || r.status === 'late').length
+                  const counted = records.filter(r => r.status !== 'other')
+                  const attended = counted.filter(r => r.status === 'present' || r.status === 'late').length
                   const sPct = pctOf(records)
                   return html`
                     <tr key=${s.id} class="clickable" onClick=${() => onSelect(s.id)}>
                       <td class="td-bold">${fmtDate(s.date)}</td>
                       <td><div class="td-desc">${s.note || '—'}</div></td>
-                      <td>${records.length ? `${attended}/${records.length}` : '—'}</td>
+                      <td>${counted.length ? `${attended}/${counted.length}` : '—'}</td>
                       <td><span class=${pctClass(sPct)}>${sPct === null ? '—' : sPct + '%'}</span></td>
                       <td>
                         <div style=${{ display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
@@ -720,15 +751,16 @@ function Report({ players, sessions, attendance }) {
       const present = records.filter(r => r.status === 'present').length
       const late    = records.filter(r => r.status === 'late').length
       const absent  = records.filter(r => r.status === 'absent').length
+      const other   = records.filter(r => r.status === 'other').length
       const pct     = pctOf(records)
-      return { player: p, marked: records.length, present, late, absent, pct }
+      return { player: p, marked: records.length, present, late, absent, other, pct }
     })
     .sort((a, b) => (b.pct ?? -1) - (a.pct ?? -1))
 
   const exportCsv = () => {
-    const header = ['שם', 'תפקיד', 'אימונים שסומנו', 'נוכח', 'איחור', 'נעדר', 'אחוז נוכחות']
+    const header = ['שם', 'תפקיד', 'אימונים שסומנו', 'נוכח', 'איחור', 'נעדר', 'אחר', 'אחוז נוכחות']
     const lines = rows.map(r => [
-      r.player.name, r.player.position || '', r.marked, r.present, r.late, r.absent, r.pct === null ? '' : r.pct + '%'
+      r.player.name, r.player.position || '', r.marked, r.present, r.late, r.absent, r.other, r.pct === null ? '' : r.pct + '%'
     ])
     const csv = '﻿' + [header, ...lines].map(row => row.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n')
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
@@ -762,7 +794,7 @@ function Report({ players, sessions, attendance }) {
           <div class="table-wrapper">
             <table>
               <thead>
-                <tr><th>שם</th><th>תפקיד</th><th>אימונים</th><th>נוכח</th><th>איחור</th><th>נעדר</th><th>אחוז נוכחות</th></tr>
+                <tr><th>שם</th><th>תפקיד</th><th>אימונים</th><th>נוכח</th><th>איחור</th><th>נעדר</th><th>אחר</th><th>אחוז נוכחות</th></tr>
               </thead>
               <tbody>
                 ${rows.map(r => html`
@@ -773,6 +805,7 @@ function Report({ players, sessions, attendance }) {
                     <td>${r.present}</td>
                     <td>${r.late}</td>
                     <td>${r.absent}</td>
+                    <td>${r.other}</td>
                     <td><span class=${pctClass(r.pct)}>${r.pct === null ? 'אין נתונים' : r.pct + '%'}</span></td>
                   </tr>
                 `)}
