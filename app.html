@@ -151,7 +151,7 @@
     .empty-text { font-size: 14px; color: var(--gray-400); }
 
     /* Attendance marking */
-    .attendance-toggle-group { display: flex; gap: 6px; flex-shrink: 0; }
+    .attendance-toggle-group { display: flex; gap: 6px; flex-wrap: wrap; }
     .toggle-btn { padding: 8px 13px; border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer; border: 1.5px solid var(--gray-200); background: transparent; color: var(--gray-400); font-family: var(--font); transition: all 0.13s; white-space: nowrap; }
     .toggle-btn:hover { border-color: var(--gray-400); }
     .toggle-btn.present.active { background: var(--green); border-color: var(--green); color: var(--white); }
@@ -179,8 +179,8 @@
     .back-link { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--gray-500); cursor: pointer; background: none; border: none; font-family: var(--font); margin-bottom: 14px; padding: 4px 0; }
     .back-link:hover { color: var(--accent); }
 
-    /* ── Mobile ─────────────────────────────────────────────────── */
-    @media (max-width: 768px) {
+    /* ── Mobile / Tablet (iPad portrait included) ──────────────────── */
+    @media (max-width: 1024px) {
       /* Sidebar → bottom nav */
       .sidebar {
         position: fixed; bottom: 0; left: 0; right: 0;
@@ -534,6 +534,7 @@ function SessionDetail({ session, players, attendance, onReload, onBack }) {
 
   const [statusMap, setStatusMap] = useState({})
   const [noteMap, setNoteMap]     = useState({})
+  const [saved, setSaved]         = useState(false)
   useEffect(() => {
     const sMap = {}, nMap = {}
     records.forEach(r => { sMap[r.player_id] = r.status; nMap[r.player_id] = r.note || '' })
@@ -567,6 +568,22 @@ function SessionDetail({ session, players, attendance, onReload, onBack }) {
     onReload()
   }
 
+  // שמירה ידנית — הכל כבר נשמר אוטומטית בכל לחיצה, זה בעיקר לשקט נפשי:
+  // מוודא שגם הערת "אחר" שכתובה כרגע בשדה (ולא עזבו אותו עדיין) נשמרת.
+  const saveAll = async () => {
+    if (document.activeElement) document.activeElement.blur()
+    const marked = roster.filter(p => statusMap[p.id])
+    await Promise.all(marked.map(p =>
+      sb.from('attendance').upsert(
+        { session_id: session.id, player_id: p.id, status: statusMap[p.id], note: noteMap[p.id] || null },
+        { onConflict: 'session_id,player_id' }
+      )
+    ))
+    onReload()
+    setSaved(true)
+    setTimeout(() => setSaved(false), 2000)
+  }
+
   const counts = { present: 0, late: 0, absent: 0, other: 0 }
   roster.forEach(p => { const s = statusMap[p.id]; if (s) counts[s]++ })
   const unmarkedCount = roster.length - (counts.present + counts.late + counts.absent + counts.other)
@@ -580,7 +597,10 @@ function SessionDetail({ session, players, attendance, onReload, onBack }) {
             <h1 class="page-title">${fmtDate(session.date)}</h1>
             <p class="page-subtitle">${session.note || 'סימון נוכחות לאימון'}</p>
           </div>
-          <button class="btn btn-outline" onClick=${markAllPresent}>סמן הכל כנוכחים</button>
+          <div style=${{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            <button class="btn btn-outline" onClick=${markAllPresent}>סמן הכל כנוכחים</button>
+            <button class="btn btn-primary" onClick=${saveAll}>${saved ? '✓ נשמר' : 'שמירה'}</button>
+          </div>
         </div>
       </div>
 
