@@ -812,6 +812,33 @@ function Report({ players, sessions, attendance }) {
     URL.revokeObjectURL(url)
   }
 
+  // מטריצה: כל שחקן מול כל אימון, בדף/קובץ אחד מרוכז
+  const sortedSessions = [...sessions].sort((a, b) => new Date(a.date) - new Date(b.date))
+  const sortedPlayers  = [...players].sort((a, b) => a.name.localeCompare(b.name, 'he'))
+  const cellRecord = (playerId, sessionId) => attendance.find(a => a.player_id === playerId && a.session_id === sessionId)
+  const CELL_LABEL = { present: 'נוכח', late: 'איחור', absent: 'נעדר', other: 'אחר' }
+  const CELL_CLASS = { present: 'badge-present', late: 'badge-late', absent: 'badge-absent', other: 'badge-other' }
+
+  const exportMatrixCsv = () => {
+    const header = ['שחקן', ...sortedSessions.map(s => fmtDate(s.date))]
+    const lines = sortedPlayers.map(p => [
+      p.name,
+      ...sortedSessions.map(s => {
+        const rec = cellRecord(p.id, s.id)
+        if (!rec) return ''
+        return CELL_LABEL[rec.status] + (rec.note ? ` (${rec.note})` : '')
+      })
+    ])
+    const csv = '﻿' + [header, ...lines].map(row => row.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n')
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `נוכחות-כל-האימונים-${today()}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
   return html`
     <div>
       <div class="page-header">
@@ -854,6 +881,42 @@ function Report({ players, sessions, attendance }) {
           </div>
         `}
       </div>
+
+      ${sortedSessions.length > 0 && html`
+        <div class="card" style=${{ marginTop: 24 }}>
+          <div class="section-header">
+            <h2 class="section-title">נוכחות מפורטת לפי אימון</h2>
+            <button class="btn btn-outline" style=${{ fontSize: 13, padding: '6px 13px' }} onClick=${exportMatrixCsv}>ייצוא לדף אחד (CSV)</button>
+          </div>
+          <div class="table-wrapper">
+            <table>
+              <thead>
+                <tr>
+                  <th>שחקן</th>
+                  ${sortedSessions.map(s => html`<th key=${s.id}>${fmtDate(s.date)}</th>`)}
+                </tr>
+              </thead>
+              <tbody>
+                ${sortedPlayers.map(p => html`
+                  <tr key=${p.id}>
+                    <td class="td-bold">${p.name}</td>
+                    ${sortedSessions.map(s => {
+                      const rec = cellRecord(p.id, s.id)
+                      return html`
+                        <td key=${s.id}>
+                          ${rec
+                            ? html`<span class=${'badge ' + CELL_CLASS[rec.status]} title=${rec.note || ''}>${CELL_LABEL[rec.status]}</span>`
+                            : html`<span style=${{ color: 'var(--gray-300)' }}>—</span>`}
+                        </td>
+                      `
+                    })}
+                  </tr>
+                `)}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `}
     </div>
   `
 }
