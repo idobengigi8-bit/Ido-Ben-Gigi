@@ -267,12 +267,11 @@ const STATUS_BADGE   = { present: 'badge-present', late: 'badge-late', absent: '
 const attendanceForSession = (attendance, sessionId) => attendance.filter(a => a.session_id === sessionId)
 const attendanceForPlayer  = (attendance, playerId)  => attendance.filter(a => a.player_id === playerId)
 
-// "אחר" (חופשה/מחלה/פציעה וכו') לא נספר בכלל בתוך אחוז הנוכחות — לא נוכחות ולא היעדרות שנחשבת נגד השחקן
+// "אחר" (חופשה/מחלה/פציעה וכו') נספר כנעדר לצורך אחוז הנוכחות
 const pctOf = (records) => {
-  const counted = records.filter(r => r.status !== 'other')
-  if (counted.length === 0) return null
-  const attended = counted.filter(r => r.status === 'present' || r.status === 'late').length
-  return Math.round((attended / counted.length) * 100)
+  if (records.length === 0) return null
+  const attended = records.filter(r => r.status === 'present' || r.status === 'late').length
+  return Math.round((attended / records.length) * 100)
 }
 
 const pctClass = (pct) => pct === null ? 'pct-none' : pct >= 80 ? 'pct-good' : pct >= 50 ? 'pct-mid' : 'pct-low'
@@ -313,6 +312,13 @@ function Dashboard({ players, sessions, attendance, onOpenSession, setActiveTab 
   const activePlayers = players.filter(p => p.active)
   const pct = pctOf(attendance)
   const recent = [...sessions].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 5)
+  const latestSession = recent[0]
+  const latestOthers = latestSession
+    ? attendance
+        .filter(a => a.session_id === latestSession.id && a.status === 'other')
+        .map(a => ({ player: players.find(p => p.id === a.player_id), note: a.note }))
+        .filter(o => o.player)
+    : []
 
   return html`
     <div>
@@ -342,6 +348,22 @@ function Dashboard({ players, sessions, attendance, onOpenSession, setActiveTab 
         </div>
       </div>
 
+      ${latestOthers.length > 0 && html`
+        <div class="card" style=${{ marginBottom: 28 }}>
+          <div class="section-header">
+            <h2 class="section-title">לא זמינים באימון האחרון (${fmtDate(latestSession.date)})</h2>
+          </div>
+          ${latestOthers.map(o => html`
+            <div key=${o.player.id} class="player-row">
+              <div class="player-row-info">
+                <div class="player-row-name">${o.player.name}</div>
+              </div>
+              <div style=${{ fontSize: 13, color: 'var(--gray-500)' }}>${o.note || 'ללא סיבה מצוינת'}</div>
+            </div>
+          `)}
+        </div>
+      `}
+
       <div class="card">
         <div class="section-header">
           <h2 class="section-title">אימונים אחרונים</h2>
@@ -363,14 +385,13 @@ function Dashboard({ players, sessions, attendance, onOpenSession, setActiveTab 
               <tbody>
                 ${recent.map(s => {
                   const records = attendanceForSession(attendance, s.id)
-                  const counted = records.filter(r => r.status !== 'other')
-                  const attended = counted.filter(r => r.status === 'present' || r.status === 'late').length
+                  const attended = records.filter(r => r.status === 'present' || r.status === 'late').length
                   const sPct = pctOf(records)
                   return html`
                     <tr key=${s.id} class="clickable" onClick=${() => onOpenSession(s.id)}>
                       <td class="td-bold">${fmtDate(s.date)}</td>
                       <td><div class="td-desc">${s.note || '—'}</div></td>
-                      <td>${counted.length ? `${attended}/${counted.length}` : '—'}</td>
+                      <td>${records.length ? `${attended}/${records.length}` : '—'}</td>
                       <td><span class=${pctClass(sPct)}>${sPct === null ? '—' : sPct + '%'}</span></td>
                     </tr>
                   `
@@ -716,14 +737,13 @@ function Sessions({ sessions, players, attendance, selectedId, onSelect, onReloa
               <tbody>
                 ${sorted.map(s => {
                   const records = attendanceForSession(attendance, s.id)
-                  const counted = records.filter(r => r.status !== 'other')
-                  const attended = counted.filter(r => r.status === 'present' || r.status === 'late').length
+                  const attended = records.filter(r => r.status === 'present' || r.status === 'late').length
                   const sPct = pctOf(records)
                   return html`
                     <tr key=${s.id} class="clickable" onClick=${() => onSelect(s.id)}>
                       <td class="td-bold">${fmtDate(s.date)}</td>
                       <td><div class="td-desc">${s.note || '—'}</div></td>
-                      <td>${counted.length ? `${attended}/${counted.length}` : '—'}</td>
+                      <td>${records.length ? `${attended}/${records.length}` : '—'}</td>
                       <td><span class=${pctClass(sPct)}>${sPct === null ? '—' : sPct + '%'}</span></td>
                       <td>
                         <div style=${{ display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
