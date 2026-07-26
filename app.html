@@ -237,6 +237,17 @@
       .attendance-toggle-group { width: 100%; }
       .toggle-btn { flex: 1; }
     }
+
+    /* ── Print / PDF ────────────────────────────────────────────── */
+    @media print {
+      .sidebar, .btn, .back-link, .filter-tabs { display: none !important; }
+      .app-layout { display: block; height: auto; }
+      .main-content { padding: 0; overflow: visible; height: auto; }
+      .card { border: none; box-shadow: none; padding: 0; margin-bottom: 20px; page-break-inside: avoid; }
+      .table-wrapper { overflow: visible; }
+      table { font-size: 11px; }
+      .page-header-row { display: block; }
+    }
   </style>
 </head>
 <body>
@@ -847,7 +858,12 @@ function Report({ players, sessions, attendance }) {
             <h1 class="page-title">דוח נוכחות</h1>
             <p class="page-subtitle">אחוזי הגעה לפי שחקן, לאורך העונה</p>
           </div>
-          ${rows.length > 0 && html`<button class="btn btn-outline" onClick=${exportCsv}>ייצוא CSV</button>`}
+          ${rows.length > 0 && html`
+            <div style=${{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+              <button class="btn btn-primary" onClick=${() => window.print()}>ייצוא ל-PDF</button>
+              <button class="btn btn-outline" onClick=${exportCsv}>ייצוא CSV</button>
+            </div>
+          `}
         </div>
       </div>
 
