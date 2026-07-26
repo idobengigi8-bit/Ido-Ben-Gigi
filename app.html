@@ -240,14 +240,19 @@
 
     /* ── Print / PDF ────────────────────────────────────────────── */
     @media print {
-      .sidebar, .btn, .back-link, .filter-tabs { display: none !important; }
-      .app-layout { display: block; height: auto; }
-      .main-content { padding: 0; overflow: visible; height: auto; }
+      html, body, #root { height: auto !important; overflow: visible !important; }
+      .sidebar, .btn, .back-link, .filter-tabs, .attendance-toggle-group, .player-row-note { display: none !important; }
+      .app-layout { display: block !important; height: auto !important; overflow: visible !important; }
+      .main-content { padding: 0 !important; overflow: visible !important; height: auto !important; }
       .card { border: none; box-shadow: none; padding: 0; margin-bottom: 20px; page-break-inside: avoid; }
-      .table-wrapper { overflow: visible; }
+      .table-wrapper { overflow: visible !important; }
       table { font-size: 11px; }
       .page-header-row { display: block; }
+      .session-summary { margin-bottom: 16px; }
+      .player-row { padding: 6px 0; }
+      .print-status { display: inline !important; font-size: 13px; font-weight: 600; color: var(--black); }
     }
+    .print-status { display: none; }
   </style>
 </head>
 <body>
@@ -632,6 +637,7 @@ function SessionDetail({ session, players, attendance, onReload, onBack }) {
           <div style=${{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
             <button class="btn btn-outline" onClick=${markAllPresent}>סמן הכל כנוכחים</button>
             <button class="btn btn-primary" onClick=${saveAll}>${saved ? '✓ נשמר' : 'שמירה'}</button>
+            <button class="btn btn-outline" onClick=${() => window.print()}>ייצוא ל-PDF</button>
           </div>
         </div>
       </div>
@@ -662,6 +668,7 @@ function SessionDetail({ session, players, attendance, onReload, onBack }) {
               <button class=${'toggle-btn absent' + (statusMap[p.id] === 'absent' ? ' active' : '')} onClick=${() => setStatus(p.id, 'absent')}>נעדר</button>
               <button class=${'toggle-btn other' + (statusMap[p.id] === 'other' ? ' active' : '')} onClick=${() => setStatus(p.id, 'other')}>אחר</button>
             </div>
+            <span class="print-status">${STATUS_LABELS[statusMap[p.id]] || 'לא סומן'}${statusMap[p.id] === 'other' && noteMap[p.id] ? ' — ' + noteMap[p.id] : ''}</span>
             ${statusMap[p.id] === 'other' && html`
               <div class="player-row-note">
                 <input
