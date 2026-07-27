@@ -22,7 +22,7 @@ create table if not exists attendance (
   id uuid primary key default gen_random_uuid(),
   session_id uuid not null references sessions(id) on delete cascade,
   player_id uuid not null references players(id) on delete cascade,
-  status text not null check (status in ('present', 'late', 'absent', 'other')),
+  status text not null check (status in ('present', 'late', 'absent', 'vacation', 'sick', 'other')),
   note text,
   created_at timestamptz not null default now(),
   unique (session_id, player_id)

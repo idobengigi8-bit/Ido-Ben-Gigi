@@ -96,6 +96,8 @@
     .badge-late { background: var(--amber-light); color: var(--amber); }
     .badge-absent { background: var(--red-light); color: var(--red); }
     .badge-other { background: var(--gray-100); color: var(--gray-600); }
+    .badge-vacation { background: #EDE9FE; color: #6D28D9; }
+    .badge-sick { background: #CFFAFE; color: #0E7490; }
 
     /* Tables */
     .table-wrapper { overflow-x: auto; }
@@ -158,6 +160,8 @@
     .toggle-btn.late.active { background: var(--amber); border-color: var(--amber); color: var(--white); }
     .toggle-btn.absent.active { background: var(--red); border-color: var(--red); color: var(--white); }
     .toggle-btn.other.active { background: var(--gray-600); border-color: var(--gray-600); color: var(--white); }
+    .toggle-btn.vacation.active { background: #6D28D9; border-color: #6D28D9; color: var(--white); }
+    .toggle-btn.sick.active { background: #0E7490; border-color: #0E7490; color: var(--white); }
 
     .player-row { display: flex; align-items: center; justify-content: space-between; padding: 14px 0; border-bottom: 1px solid var(--gray-100); gap: 14px; flex-wrap: wrap; }
     .player-row-note { width: 100%; margin-top: 4px; }
@@ -312,17 +316,21 @@ function ImagePreviewModal({ src, onClose }) {
   `
 }
 
-const STATUS_LABELS = { present: 'נוכח', late: 'באיחור', absent: 'נעדר', other: 'אחר' }
-const STATUS_BADGE   = { present: 'badge-present', late: 'badge-late', absent: 'badge-absent', other: 'badge-other' }
+const STATUS_LABELS = { present: 'נוכח', late: 'באיחור', absent: 'נעדר', vacation: 'חופשה', sick: 'מחלה/פציעה', other: 'אחר' }
+const STATUS_BADGE   = { present: 'badge-present', late: 'badge-late', absent: 'badge-absent', vacation: 'badge-vacation', sick: 'badge-sick', other: 'badge-other' }
+
+// סטטוסים "מוצדקים" — לא נספרים לא לטובה ולא לרעה באחוז הנוכחות
+const EXCUSED_STATUSES = ['sick']
 
 const attendanceForSession = (attendance, sessionId) => attendance.filter(a => a.session_id === sessionId)
 const attendanceForPlayer  = (attendance, playerId)  => attendance.filter(a => a.player_id === playerId)
 
-// "אחר" (חופשה/מחלה/פציעה וכו') נספר כנעדר לצורך אחוז הנוכחות
+// חופשה (ו"אחר" הישן) נספרים כנעדר לצורך אחוז הנוכחות; מחלה/פציעה מוצדקים ולא נספרים בכלל
 const pctOf = (records) => {
-  if (records.length === 0) return null
-  const attended = records.filter(r => r.status === 'present' || r.status === 'late').length
-  return Math.round((attended / records.length) * 100)
+  const counted = records.filter(r => !EXCUSED_STATUSES.includes(r.status))
+  if (counted.length === 0) return null
+  const attended = counted.filter(r => r.status === 'present' || r.status === 'late').length
+  return Math.round((attended / counted.length) * 100)
 }
 
 const pctClass = (pct) => pct === null ? 'pct-none' : pct >= 80 ? 'pct-good' : pct >= 50 ? 'pct-mid' : 'pct-low'
@@ -366,8 +374,8 @@ function Dashboard({ players, sessions, attendance, onOpenSession, setActiveTab 
   const latestSession = recent[0]
   const latestOthers = latestSession
     ? attendance
-        .filter(a => a.session_id === latestSession.id && a.status === 'other')
-        .map(a => ({ player: players.find(p => p.id === a.player_id), note: a.note }))
+        .filter(a => a.session_id === latestSession.id && ['vacation', 'sick', 'other'].includes(a.status))
+        .map(a => ({ player: players.find(p => p.id === a.player_id), status: a.status, note: a.note }))
         .filter(o => o.player)
     : []
 
@@ -409,7 +417,10 @@ function Dashboard({ players, sessions, attendance, onOpenSession, setActiveTab 
               <div class="player-row-info">
                 <div class="player-row-name">${o.player.name}</div>
               </div>
-              <div style=${{ fontSize: 13, color: 'var(--gray-500)' }}>${o.note || 'ללא סיבה מצוינת'}</div>
+              <div style=${{ fontSize: 13, color: 'var(--gray-500)' }}>
+                <span class=${'badge ' + STATUS_BADGE[o.status]}>${STATUS_LABELS[o.status]}</span>
+                ${o.note ? ' — ' + o.note : ''}
+              </div>
             </div>
           `)}
         </div>
@@ -656,9 +667,9 @@ function SessionDetail({ session, players, attendance, onReload, onBack }) {
     setTimeout(() => setSaved(false), 2000)
   }
 
-  const counts = { present: 0, late: 0, absent: 0, other: 0 }
+  const counts = { present: 0, late: 0, absent: 0, vacation: 0, sick: 0, other: 0 }
   roster.forEach(p => { const s = statusMap[p.id]; if (s) counts[s]++ })
-  const unmarkedCount = roster.length - (counts.present + counts.late + counts.absent + counts.other)
+  const unmarkedCount = roster.length - (counts.present + counts.late + counts.absent + counts.vacation + counts.sick + counts.other)
 
   const captureRef = useRef(null)
   const [previewImg, setPreviewImg] = useState(null)
@@ -691,6 +702,8 @@ function SessionDetail({ session, players, attendance, onReload, onBack }) {
           <div class="session-summary-item"><b>${counts.present}</b> נוכחים</div>
           <div class="session-summary-item"><b>${counts.late}</b> באיחור</div>
           <div class="session-summary-item"><b>${counts.absent}</b> נעדרים</div>
+          ${counts.vacation > 0 && html`<div class="session-summary-item"><b>${counts.vacation}</b> חופשה</div>`}
+          ${counts.sick > 0 && html`<div class="session-summary-item"><b>${counts.sick}</b> מחלה/פציעה</div>`}
           ${counts.other > 0 && html`<div class="session-summary-item"><b>${counts.other}</b> אחר</div>`}
           ${unmarkedCount > 0 && html`<div class="session-summary-item"><b>${unmarkedCount}</b> לא סומנו</div>`}
         </div>
@@ -711,14 +724,15 @@ function SessionDetail({ session, players, attendance, onReload, onBack }) {
                 <button class=${'toggle-btn present' + (statusMap[p.id] === 'present' ? ' active' : '')} onClick=${() => setStatus(p.id, 'present')}>נוכח</button>
                 <button class=${'toggle-btn late' + (statusMap[p.id] === 'late' ? ' active' : '')} onClick=${() => setStatus(p.id, 'late')}>איחור</button>
                 <button class=${'toggle-btn absent' + (statusMap[p.id] === 'absent' ? ' active' : '')} onClick=${() => setStatus(p.id, 'absent')}>נעדר</button>
-                <button class=${'toggle-btn other' + (statusMap[p.id] === 'other' ? ' active' : '')} onClick=${() => setStatus(p.id, 'other')}>אחר</button>
+                <button class=${'toggle-btn vacation' + (statusMap[p.id] === 'vacation' ? ' active' : '')} onClick=${() => setStatus(p.id, 'vacation')}>חופשה</button>
+                <button class=${'toggle-btn sick' + (statusMap[p.id] === 'sick' ? ' active' : '')} onClick=${() => setStatus(p.id, 'sick')}>מחלה/פציעה</button>
               </div>
-              <span class="print-status">${STATUS_LABELS[statusMap[p.id]] || 'לא סומן'}${statusMap[p.id] === 'other' && noteMap[p.id] ? ' — ' + noteMap[p.id] : ''}</span>
-              ${statusMap[p.id] === 'other' && html`
+              <span class="print-status">${STATUS_LABELS[statusMap[p.id]] || 'לא סומן'}${(statusMap[p.id] === 'vacation' || statusMap[p.id] === 'sick') && noteMap[p.id] ? ' — ' + noteMap[p.id] : ''}</span>
+              ${(statusMap[p.id] === 'vacation' || statusMap[p.id] === 'sick') && html`
                 <div class="player-row-note">
                   <input
                     class="form-control"
-                    placeholder="סיבה: חופשה / מחלה / פציעה..."
+                    placeholder="פרטים נוספים (לא חובה)..."
                     value=${noteMap[p.id] || ''}
                     onInput=${e => setNoteMap(m => ({ ...m, [p.id]: e.target.value }))}
                     onBlur=${e => saveNote(p.id, e.target.value)}
@@ -863,19 +877,20 @@ function Report({ players, sessions, attendance }) {
   const rows = players
     .map(p => {
       const records = attendanceForPlayer(attendance, p.id)
-      const present = records.filter(r => r.status === 'present').length
-      const late    = records.filter(r => r.status === 'late').length
-      const absent  = records.filter(r => r.status === 'absent').length
-      const other   = records.filter(r => r.status === 'other').length
-      const pct     = pctOf(records)
-      return { player: p, marked: records.length, present, late, absent, other, pct }
+      const present  = records.filter(r => r.status === 'present').length
+      const late     = records.filter(r => r.status === 'late').length
+      const absent   = records.filter(r => r.status === 'absent').length
+      const vacation = records.filter(r => r.status === 'vacation' || r.status === 'other').length
+      const sick     = records.filter(r => r.status === 'sick').length
+      const pct      = pctOf(records)
+      return { player: p, marked: records.length, present, late, absent, vacation, sick, pct }
     })
     .sort((a, b) => (b.pct ?? -1) - (a.pct ?? -1))
 
   const exportCsv = () => {
-    const header = ['שם', 'תפקיד', 'אימונים שסומנו', 'נוכח', 'איחור', 'נעדר', 'אחר', 'אחוז נוכחות']
+    const header = ['שם', 'תפקיד', 'אימונים שסומנו', 'נוכח', 'איחור', 'נעדר', 'חופשה', 'מחלה/פציעה', 'אחוז נוכחות']
     const lines = rows.map(r => [
-      r.player.name, r.player.position || '', r.marked, r.present, r.late, r.absent, r.other, r.pct === null ? '' : r.pct + '%'
+      r.player.name, r.player.position || '', r.marked, r.present, r.late, r.absent, r.vacation, r.sick, r.pct === null ? '' : r.pct + '%'
     ])
     const csv = '﻿' + [header, ...lines].map(row => row.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n')
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
@@ -891,8 +906,6 @@ function Report({ players, sessions, attendance }) {
   const sortedSessions = [...sessions].sort((a, b) => new Date(a.date) - new Date(b.date))
   const sortedPlayers  = [...players].sort((a, b) => a.name.localeCompare(b.name, 'he'))
   const cellRecord = (playerId, sessionId) => attendance.find(a => a.player_id === playerId && a.session_id === sessionId)
-  const CELL_LABEL = { present: 'נוכח', late: 'איחור', absent: 'נעדר', other: 'אחר' }
-  const CELL_CLASS = { present: 'badge-present', late: 'badge-late', absent: 'badge-absent', other: 'badge-other' }
 
   const exportMatrixCsv = () => {
     const header = ['שחקן', ...sortedSessions.map(s => fmtDate(s.date))]
@@ -901,7 +914,7 @@ function Report({ players, sessions, attendance }) {
       ...sortedSessions.map(s => {
         const rec = cellRecord(p.id, s.id)
         if (!rec) return ''
-        return CELL_LABEL[rec.status] + (rec.note ? ` (${rec.note})` : '')
+        return STATUS_LABELS[rec.status] + (rec.note ? ` (${rec.note})` : '')
       })
     ])
     const csv = '﻿' + [header, ...lines].map(row => row.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n')
@@ -942,7 +955,7 @@ function Report({ players, sessions, attendance }) {
             <div class="table-wrapper">
               <table>
                 <thead>
-                  <tr><th>שם</th><th>תפקיד</th><th>אימונים</th><th>נוכח</th><th>איחור</th><th>נעדר</th><th>אחר</th><th>אחוז נוכחות</th></tr>
+                  <tr><th>שם</th><th>תפקיד</th><th>אימונים</th><th>נוכח</th><th>איחור</th><th>נעדר</th><th>חופשה</th><th>מחלה/פציעה</th><th>אחוז נוכחות</th></tr>
                 </thead>
                 <tbody>
                   ${rows.map(r => html`
@@ -953,7 +966,8 @@ function Report({ players, sessions, attendance }) {
                       <td>${r.present}</td>
                       <td>${r.late}</td>
                       <td>${r.absent}</td>
-                      <td>${r.other}</td>
+                      <td>${r.vacation}</td>
+                      <td>${r.sick}</td>
                       <td><span class=${pctClass(r.pct)}>${r.pct === null ? 'אין נתונים' : r.pct + '%'}</span></td>
                     </tr>
                   `)}
@@ -986,7 +1000,7 @@ function Report({ players, sessions, attendance }) {
                         return html`
                           <td key=${s.id}>
                             ${rec
-                              ? html`<span class=${'badge ' + CELL_CLASS[rec.status]} title=${rec.note || ''}>${CELL_LABEL[rec.status]}</span>`
+                              ? html`<span class=${'badge ' + STATUS_BADGE[rec.status]} title=${rec.note || ''}>${STATUS_LABELS[rec.status]}</span>`
                               : html`<span style=${{ color: 'var(--gray-300)' }}>—</span>`}
                           </td>
                         `
