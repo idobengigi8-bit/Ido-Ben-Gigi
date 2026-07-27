@@ -394,6 +394,19 @@ const pctOf = (records) => {
 
 const pctClass = (pct) => pct === null ? 'pct-none' : pct >= 80 ? 'pct-good' : pct >= 50 ? 'pct-mid' : 'pct-low'
 
+// כמה היעדרויות רצופות יש לשחקן, סופר אחורה מהאימון האחרון שסומן (מתעלם ממחלה/פציעה ומאימונים שלא סומנו)
+const consecutiveMisses = (playerId, sessions, attendance) => {
+  const sorted = [...sessions].sort((a, b) => new Date(b.date) - new Date(a.date))
+  let streak = 0
+  for (const s of sorted) {
+    const rec = attendance.find(a => a.player_id === playerId && a.session_id === s.id)
+    if (!rec || EXCUSED_STATUSES.includes(rec.status)) continue
+    if (rec.status === 'present' || rec.status === 'late') break
+    streak++
+  }
+  return streak
+}
+
 // ── Sidebar ────────────────────────────────────────────────────────
 function Sidebar({ activeTab, setActiveTab }) {
   const nav = [
@@ -439,6 +452,11 @@ function Dashboard({ players, sessions, attendance, onOpenSession, setActiveTab 
         .filter(o => o.player)
     : []
 
+  const needsAttention = activePlayers
+    .map(p => ({ player: p, streak: consecutiveMisses(p.id, sessions, attendance) }))
+    .filter(r => r.streak >= 2)
+    .sort((a, b) => b.streak - a.streak)
+
   return html`
     <div>
       <div class="page-header">
@@ -466,6 +484,22 @@ function Dashboard({ players, sessions, attendance, onOpenSession, setActiveTab 
           <div class="stat-value" style=${{ fontSize: 17 }}>${recent[0] ? fmtDate(recent[0].date) : '—'}</div>
         </div>
       </div>
+
+      ${needsAttention.length > 0 && html`
+        <div class="card" style=${{ marginBottom: 28, borderColor: 'var(--amber)' }}>
+          <div class="section-header">
+            <h2 class="section-title">⚠ דורשים תשומת לב</h2>
+          </div>
+          ${needsAttention.map(r => html`
+            <div key=${r.player.id} class="player-row">
+              <div class="player-row-info">
+                <div class="player-row-name">${r.player.name}</div>
+              </div>
+              <div class="pct-low" style=${{ fontSize: 13, fontWeight: 700 }}>${r.streak} היעדרויות רצופות</div>
+            </div>
+          `)}
+        </div>
+      `}
 
       ${latestOthers.length > 0 && html`
         <div class="card" style=${{ marginBottom: 28 }}>
@@ -1113,7 +1147,7 @@ function PitchChip({ x, y, label, containerRef, onMove, onCommit, onRemove }) {
 }
 
 // ── Match Lineup ───────────────────────────────────────────────────
-function MatchLineup({ match, players, lineup, onReload, onBack }) {
+function MatchLineup({ match, players, lineup, allMatches, allLineup, onReload, onBack }) {
   const pitchRef = useRef(null)
   const [livePos, setLivePos] = useState({})
 
@@ -1124,6 +1158,24 @@ function MatchLineup({ match, players, lineup, onReload, onBack }) {
   const notInSquad  = activePlayers.filter(p => !rowsByPlayer[p.id])
   const benchSquad  = activePlayers.filter(p => rowsByPlayer[p.id] && rowsByPlayer[p.id].x == null)
   const placed      = activePlayers.filter(p => rowsByPlayer[p.id] && rowsByPlayer[p.id].x != null)
+
+  const previousMatch = [...allMatches]
+    .filter(m => m.id !== match.id && allLineup.some(l => l.match_id === m.id))
+    .sort((a, b) => new Date(b.date) - new Date(a.date))[0]
+
+  const duplicatePreviousLineup = async () => {
+    if (!previousMatch) return
+    if (lineup.length > 0 && !window.confirm('זה יחליף את הסגל וההרכב הנוכחיים בהעתק מהמשחק הקודם. להמשיך?')) return
+    const prevRows = allLineup.filter(l => l.match_id === previousMatch.id)
+    const activeIds = new Set(activePlayers.map(p => p.id))
+    await Promise.all(prevRows.filter(r => activeIds.has(r.player_id)).map(r =>
+      sb.from('lineup').upsert(
+        { match_id: match.id, player_id: r.player_id, x: r.x, y: r.y },
+        { onConflict: 'match_id,player_id' }
+      )
+    ))
+    onReload()
+  }
 
   const addToSquad = async (playerId) => {
     await sb.from('lineup').upsert({ match_id: match.id, player_id: playerId }, { onConflict: 'match_id,player_id' })
@@ -1158,8 +1210,15 @@ function MatchLineup({ match, players, lineup, onReload, onBack }) {
     <div>
       <button class="back-link" onClick=${onBack}>→ חזרה למשחקים</button>
       <div class="page-header">
-        <h1 class="page-title">${fmtDate(match.date)}${match.opponent ? ' נגד ' + match.opponent : ''}</h1>
-        <p class="page-subtitle">הוסף שחקנים לסגל, ואז גרור אותם למקום שלהם במגרש</p>
+        <div class="page-header-row">
+          <div>
+            <h1 class="page-title">${fmtDate(match.date)}${match.opponent ? ' נגד ' + match.opponent : ''}</h1>
+            <p class="page-subtitle">הוסף שחקנים לסגל, ואז גרור אותם למקום שלהם במגרש</p>
+          </div>
+          ${previousMatch && html`
+            <button class="btn btn-outline" onClick=${duplicatePreviousLineup}>שכפל הרכב אחרון</button>
+          `}
+        </div>
       </div>
 
       <div class="pitch-wrap">
@@ -1237,6 +1296,8 @@ function Matches({ matches, players, lineup, selectedId, onSelect, onReload }) {
       match=${selected}
       players=${players}
       lineup=${lineup.filter(l => l.match_id === selected.id)}
+      allMatches=${matches}
+      allLineup=${lineup}
       onReload=${onReload}
       onBack=${() => onSelect(null)}
     />`
