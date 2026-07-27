@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>כפר יונה נוער — מעקב הגעה</title>
+  <link rel="icon" href="logo.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
@@ -49,6 +50,7 @@
       box-shadow: 4px 0 24px rgba(13,27,62,0.18);
     }
     .sidebar-brand { padding: 0 28px 32px; border-bottom: 1px solid rgba(255,255,255,0.07); margin-bottom: 16px; }
+    .sidebar-logo { width: 52px; height: 52px; display: block; margin-bottom: 12px; }
     .sidebar-brand-name { font-size: 19px; font-weight: 800; letter-spacing: -0.4px; }
     .sidebar-brand-tag { display: inline-block; margin-top: 8px; font-size: 11px; color: rgba(255,255,255,0.35); }
     .sidebar-nav { flex: 1; padding: 8px 16px; display: flex; flex-direction: column; gap: 2px; }
@@ -419,6 +421,7 @@ function Sidebar({ activeTab, setActiveTab }) {
   return html`
     <aside class="sidebar">
       <div class="sidebar-brand">
+        <img src="logo.png" alt="כפר יונה" class="sidebar-logo" />
         <div class="sidebar-brand-name">כפר יונה נוער</div>
         <span class="sidebar-brand-tag">מעקב הגעה · עידו בן גיגי</span>
       </div>
@@ -846,14 +849,14 @@ function SessionDetail({ session, players, attendance, onReload, onBack }) {
 // ── Sessions ───────────────────────────────────────────────────────
 const EMPTY_SESSION = { date: '', note: '' }
 
-function Sessions({ sessions, players, attendance, selectedId, onSelect, onReload }) {
+function Sessions({ sessions, players, attendance, selectedId, onSelect, onReload, onReloadFast }) {
   const [showModal, setShowModal] = useState(false)
   const [editId, setEditId]       = useState(null)
   const [form, setForm]           = useState(EMPTY_SESSION)
 
   const selected = selectedId ? sessions.find(s => s.id === selectedId) : null
   if (selected) {
-    return html`<${SessionDetail} session=${selected} players=${players} attendance=${attendance} onReload=${onReload} onBack=${() => onSelect(null)} />`
+    return html`<${SessionDetail} session=${selected} players=${players} attendance=${attendance} onReload=${onReloadFast || onReload} onBack=${() => onSelect(null)} />`
   }
 
   const sorted = [...sessions].sort((a, b) => new Date(b.date) - new Date(a.date))
@@ -1285,7 +1288,7 @@ function MatchLineup({ match, players, lineup, allMatches, allLineup, onReload, 
 // ── Matches ────────────────────────────────────────────────────────
 const EMPTY_MATCH = { date: '', opponent: '', note: '' }
 
-function Matches({ matches, players, lineup, selectedId, onSelect, onReload }) {
+function Matches({ matches, players, lineup, selectedId, onSelect, onReload, onReloadFast }) {
   const [showModal, setShowModal] = useState(false)
   const [editId, setEditId]       = useState(null)
   const [form, setForm]           = useState(EMPTY_MATCH)
@@ -1298,7 +1301,7 @@ function Matches({ matches, players, lineup, selectedId, onSelect, onReload }) {
       lineup=${lineup.filter(l => l.match_id === selected.id)}
       allMatches=${matches}
       allLineup=${lineup}
-      onReload=${onReload}
+      onReload=${onReloadFast || onReload}
       onBack=${() => onSelect(null)}
     />`
   }
@@ -1430,6 +1433,7 @@ function PinScreen({ onUnlock }) {
       padding: '0 24px',
     }}>
       <div style=${{ textAlign: 'center' }}>
+        <img src="logo.png" alt="כפר יונה" style=${{ width: 96, height: 96, marginBottom: 14 }} />
         <div style=${{ fontSize: 28, fontWeight: 800, color: 'var(--white)', marginBottom: 10, letterSpacing: -0.5 }}>כפר יונה נוער</div>
         <div style=${{ fontSize: 15, color: 'rgba(255,255,255,0.4)' }}>הכנס קוד כניסה</div>
       </div>
@@ -1522,6 +1526,15 @@ function App() {
 
   useEffect(() => { reload() }, [])
 
+  // מסמנים הרבה שחקנים ברצף (נוכחות, גרירה במגרש) — כל לחיצה כבר מתעדכנת
+  // מיידית מקומית, אז אין טעם לרענן את כל הנתונים מהשרת בכל קליק בנפרד;
+  // מקבצים כמה קליקים רצופים לרענון אחד אחרי שהפעילות נרגעת.
+  const reloadTimer = useRef(null)
+  const debouncedReload = () => {
+    clearTimeout(reloadTimer.current)
+    reloadTimer.current = setTimeout(reload, 400)
+  }
+
   const changeTab = (tab) => {
     if (tab !== 'sessions') setSelectedSessionId(null)
     if (tab !== 'matches') setSelectedMatchId(null)
@@ -1557,6 +1570,7 @@ function App() {
             selectedId=${selectedSessionId}
             onSelect=${setSelectedSessionId}
             onReload=${reload}
+            onReloadFast=${debouncedReload}
           />`}
         ${activeTab === 'report' && html`
           <${Report} players=${data.players} sessions=${data.sessions} attendance=${data.attendance} />`}
@@ -1568,6 +1582,7 @@ function App() {
             selectedId=${selectedMatchId}
             onSelect=${setSelectedMatchId}
             onReload=${reload}
+            onReloadFast=${debouncedReload}
           />`}
       </main>
     </div>
