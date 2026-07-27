@@ -183,6 +183,65 @@
     .back-link { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--gray-500); cursor: pointer; background: none; border: none; font-family: var(--font); margin-bottom: 14px; padding: 4px 0; }
     .back-link:hover { color: var(--accent); }
 
+    /* Pitch / lineup builder */
+    .pitch-wrap { max-width: 420px; margin: 0 auto; }
+    .pitch {
+      position: relative; width: 100%; aspect-ratio: 2 / 3;
+      background: linear-gradient(180deg, #2f8f4e 0%, #2a7d45 100%);
+      border: 3px solid rgba(255,255,255,0.9); border-radius: 10px;
+      overflow: hidden; touch-action: none; box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+    }
+    .pitch::before {
+      content: ''; position: absolute; top: 50%; left: 0; right: 0; height: 2px;
+      background: rgba(255,255,255,0.75);
+    }
+    .pitch-circle {
+      position: absolute; top: 50%; left: 50%; width: 30%; aspect-ratio: 1;
+      border: 2px solid rgba(255,255,255,0.75); border-radius: 50%; transform: translate(-50%, -50%);
+    }
+    .pitch-box-top, .pitch-box-bottom {
+      position: absolute; left: 50%; width: 58%; height: 15%;
+      border: 2px solid rgba(255,255,255,0.75); transform: translateX(-50%);
+    }
+    .pitch-box-top { top: 0; border-top: none; }
+    .pitch-box-bottom { bottom: 0; border-bottom: none; }
+    .pitch-goal-top, .pitch-goal-bottom {
+      position: absolute; left: 50%; width: 26%; height: 6%;
+      border: 2px solid rgba(255,255,255,0.75); transform: translateX(-50%);
+    }
+    .pitch-goal-top { top: 0; border-top: none; }
+    .pitch-goal-bottom { bottom: 0; border-bottom: none; }
+
+    .pitch-chip {
+      position: absolute; transform: translate(-50%, -50%); display: flex; flex-direction: column;
+      align-items: center; touch-action: none; user-select: none; cursor: grab; z-index: 5;
+    }
+    .pitch-chip-dot {
+      width: 36px; height: 36px; border-radius: 50%; background: var(--accent); color: var(--white);
+      display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.35); border: 2px solid var(--white);
+    }
+    .pitch-chip-name {
+      font-size: 10px; color: var(--white); font-weight: 600; margin-top: 3px;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.6); white-space: nowrap; max-width: 74px;
+      overflow: hidden; text-overflow: ellipsis;
+    }
+    .pitch-chip-remove {
+      position: absolute; top: -6px; right: -6px; width: 18px; height: 18px; border-radius: 50%;
+      background: var(--red); color: var(--white); font-size: 11px; line-height: 1; display: flex;
+      align-items: center; justify-content: center; border: 2px solid var(--white); cursor: pointer; padding: 0;
+    }
+
+    .bench-chip {
+      display: inline-flex; align-items: center; gap: 7px; padding: 7px 12px; border-radius: 20px;
+      background: var(--gray-100); font-size: 13px; margin: 3px; font-weight: 500;
+    }
+    .bench-chip button {
+      border: none; background: rgba(0,0,0,0.06); color: var(--gray-600); cursor: pointer; font-size: 12px;
+      width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; padding: 0;
+    }
+    .bench-chip button:hover { background: var(--accent-light); color: var(--accent); }
+
     /* ── Mobile / Tablet (iPad portrait included) ──────────────────── */
     @media (max-width: 1024px) {
       /* Sidebar → bottom nav */
@@ -284,7 +343,7 @@ const sb = createClient(
 )
 
 // ── Utilities ──────────────────────────────────────────────────────
-const DEFAULT_DATA = { players: [], sessions: [], attendance: [] }
+const DEFAULT_DATA = { players: [], sessions: [], attendance: [], matches: [], lineup: [] }
 
 const today = () => new Date().toISOString().split('T')[0]
 const fmtDate = (d) => new Date(d).toLocaleDateString('he-IL')
@@ -342,6 +401,7 @@ function Sidebar({ activeTab, setActiveTab }) {
     { id: 'players',   label: 'שחקנים',       icon: '◈' },
     { id: 'sessions',  label: 'אימונים',       icon: '◎' },
     { id: 'report',    label: 'דוח נוכחות',    icon: '▤' },
+    { id: 'matches',   label: 'הרכב למשחק',    icon: '⚽' },
   ]
   return html`
     <aside class="sidebar">
@@ -1019,6 +1079,266 @@ function Report({ players, sessions, attendance }) {
   `
 }
 
+// ── Pitch chip (draggable) ────────────────────────────────────────
+const initials = (name) => name.trim().split(/\s+/).map(w => w[0]).slice(0, 2).join('')
+
+function PitchChip({ x, y, label, containerRef, onMove, onCommit, onRemove }) {
+  const handlePointerDown = (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    const move = (ev) => {
+      const rect = containerRef.current.getBoundingClientRect()
+      let nx = ((ev.clientX - rect.left) / rect.width) * 100
+      let ny = ((ev.clientY - rect.top) / rect.height) * 100
+      nx = Math.max(4, Math.min(96, nx))
+      ny = Math.max(4, Math.min(96, ny))
+      onMove(nx, ny)
+    }
+    const up = () => {
+      window.removeEventListener('pointermove', move)
+      window.removeEventListener('pointerup', up)
+      onCommit()
+    }
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', up)
+  }
+
+  return html`
+    <div class="pitch-chip" style=${{ left: x + '%', top: y + '%' }} onPointerDown=${handlePointerDown}>
+      <button class="pitch-chip-remove" onClick=${e => { e.stopPropagation(); onRemove() }}>✕</button>
+      <div class="pitch-chip-dot">${initials(label)}</div>
+      <div class="pitch-chip-name">${label}</div>
+    </div>
+  `
+}
+
+// ── Match Lineup ───────────────────────────────────────────────────
+function MatchLineup({ match, players, lineup, onReload, onBack }) {
+  const pitchRef = useRef(null)
+  const [livePos, setLivePos] = useState({})
+
+  const rowsByPlayer = {}
+  lineup.forEach(l => { rowsByPlayer[l.player_id] = l })
+
+  const activePlayers = players.filter(p => p.active).sort((a, b) => a.name.localeCompare(b.name, 'he'))
+  const notInSquad  = activePlayers.filter(p => !rowsByPlayer[p.id])
+  const benchSquad  = activePlayers.filter(p => rowsByPlayer[p.id] && rowsByPlayer[p.id].x == null)
+  const placed      = activePlayers.filter(p => rowsByPlayer[p.id] && rowsByPlayer[p.id].x != null)
+
+  const addToSquad = async (playerId) => {
+    await sb.from('lineup').upsert({ match_id: match.id, player_id: playerId }, { onConflict: 'match_id,player_id' })
+    onReload()
+  }
+
+  const removeFromSquad = async (playerId) => {
+    await sb.from('lineup').delete().eq('match_id', match.id).eq('player_id', playerId)
+    onReload()
+  }
+
+  const placeOnPitch = async (playerId) => {
+    const y = Math.min(85, 15 + placed.length * 8)
+    await sb.from('lineup').update({ x: 50, y }).eq('match_id', match.id).eq('player_id', playerId)
+    onReload()
+  }
+
+  const removeFromPitch = async (playerId) => {
+    await sb.from('lineup').update({ x: null, y: null }).eq('match_id', match.id).eq('player_id', playerId)
+    setLivePos(m => { const n = { ...m }; delete n[playerId]; return n })
+    onReload()
+  }
+
+  const commitPosition = async (playerId) => {
+    const pos = livePos[playerId]
+    if (!pos) return
+    await sb.from('lineup').update({ x: pos.x, y: pos.y }).eq('match_id', match.id).eq('player_id', playerId)
+    onReload()
+  }
+
+  return html`
+    <div>
+      <button class="back-link" onClick=${onBack}>→ חזרה למשחקים</button>
+      <div class="page-header">
+        <h1 class="page-title">${fmtDate(match.date)}${match.opponent ? ' נגד ' + match.opponent : ''}</h1>
+        <p class="page-subtitle">הוסף שחקנים לסגל, ואז גרור אותם למקום שלהם במגרש</p>
+      </div>
+
+      <div class="pitch-wrap">
+        <div class="pitch" ref=${pitchRef}>
+          <div class="pitch-circle"></div>
+          <div class="pitch-box-top"></div>
+          <div class="pitch-box-bottom"></div>
+          <div class="pitch-goal-top"></div>
+          <div class="pitch-goal-bottom"></div>
+          ${placed.map(p => {
+            const row = rowsByPlayer[p.id]
+            const pos = livePos[p.id] || { x: row.x, y: row.y }
+            return html`
+              <${PitchChip}
+                key=${p.id}
+                x=${pos.x} y=${pos.y}
+                label=${p.name}
+                containerRef=${pitchRef}
+                onMove=${(nx, ny) => setLivePos(m => ({ ...m, [p.id]: { x: nx, y: ny } }))}
+                onCommit=${() => commitPosition(p.id)}
+                onRemove=${() => removeFromPitch(p.id)}
+              />
+            `
+          })}
+        </div>
+      </div>
+
+      <div class="card" style=${{ marginTop: 20 }}>
+        <div class="section-header"><h2 class="section-title">בסגל, לא בהרכב (${benchSquad.length})</h2></div>
+        ${benchSquad.length === 0 ? html`
+          <div class="empty-text" style=${{ padding: '6px 0' }}>כל הסגל כבר בהרכב על המגרש</div>
+        ` : html`
+          <div>
+            ${benchSquad.map(p => html`
+              <span key=${p.id} class="bench-chip">
+                ${p.name}
+                <button onClick=${() => placeOnPitch(p.id)} title="הוסף להרכב על המגרש">⬆</button>
+                <button onClick=${() => removeFromSquad(p.id)} title="הסר מהסגל">✕</button>
+              </span>
+            `)}
+          </div>
+        `}
+      </div>
+
+      <div class="card" style=${{ marginTop: 20 }}>
+        <div class="section-header"><h2 class="section-title">הוספה לסגל</h2></div>
+        ${notInSquad.length === 0 ? html`
+          <div class="empty-text" style=${{ padding: '6px 0' }}>כל השחקנים הפעילים כבר בסגל</div>
+        ` : html`
+          <div>
+            ${notInSquad.map(p => html`
+              <span key=${p.id} class="bench-chip">
+                ${p.name}
+                <button onClick=${() => addToSquad(p.id)} title="הוסף לסגל">+</button>
+              </span>
+            `)}
+          </div>
+        `}
+      </div>
+    </div>
+  `
+}
+
+// ── Matches ────────────────────────────────────────────────────────
+const EMPTY_MATCH = { date: '', opponent: '', note: '' }
+
+function Matches({ matches, players, lineup, selectedId, onSelect, onReload }) {
+  const [showModal, setShowModal] = useState(false)
+  const [editId, setEditId]       = useState(null)
+  const [form, setForm]           = useState(EMPTY_MATCH)
+
+  const selected = selectedId ? matches.find(m => m.id === selectedId) : null
+  if (selected) {
+    return html`<${MatchLineup}
+      match=${selected}
+      players=${players}
+      lineup=${lineup.filter(l => l.match_id === selected.id)}
+      onReload=${onReload}
+      onBack=${() => onSelect(null)}
+    />`
+  }
+
+  const sorted = [...matches].sort((a, b) => new Date(b.date) - new Date(a.date))
+  const set = (field) => (e) => setForm(f => ({ ...f, [field]: e.target.value }))
+
+  const openAdd = () => { setForm({ date: today(), opponent: '', note: '' }); setEditId(null); setShowModal(true) }
+  const openEdit = (m, e) => { e.stopPropagation(); setForm({ date: m.date, opponent: m.opponent || '', note: m.note || '' }); setEditId(m.id); setShowModal(true) }
+
+  const handleSave = async () => {
+    if (!form.date) return
+    if (editId) {
+      await sb.from('matches').update(form).eq('id', editId)
+      setShowModal(false)
+      onReload()
+    } else {
+      const { data } = await sb.from('matches').insert(form).select().single()
+      setShowModal(false)
+      onReload()
+      if (data) onSelect(data.id)
+    }
+  }
+
+  const handleDelete = async (id, e) => {
+    e.stopPropagation()
+    if (window.confirm('למחוק את המשחק? הסגל וההרכב שנבנו עבורו יימחקו גם הם.')) {
+      await sb.from('matches').delete().eq('id', id)
+      onReload()
+    }
+  }
+
+  return html`
+    <div>
+      <div class="page-header">
+        <div class="page-header-row">
+          <div>
+            <h1 class="page-title">הרכב למשחק</h1>
+            <p class="page-subtitle">בנה סגל והרכב פתיחה לפני כל משחק</p>
+          </div>
+          <button class="btn btn-primary" onClick=${openAdd}>+ משחק חדש</button>
+        </div>
+      </div>
+
+      <div class="card">
+        ${sorted.length === 0 ? html`
+          <div class="empty-state">
+            <div class="empty-icon">⚽</div>
+            <div class="empty-text">אין משחקים עדיין — לחץ "+ משחק חדש"</div>
+          </div>
+        ` : html`
+          <div class="table-wrapper">
+            <table>
+              <thead><tr><th>תאריך</th><th>יריבה</th><th>הערה</th><th></th></tr></thead>
+              <tbody>
+                ${sorted.map(m => html`
+                  <tr key=${m.id} class="clickable" onClick=${() => onSelect(m.id)}>
+                    <td class="td-bold">${fmtDate(m.date)}</td>
+                    <td>${m.opponent || '—'}</td>
+                    <td><div class="td-desc">${m.note || '—'}</div></td>
+                    <td>
+                      <div style=${{ display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
+                        <button class="btn-ghost" onClick=${e => openEdit(m, e)}>✏️</button>
+                        <button class="btn-danger" onClick=${e => handleDelete(m.id, e)}>✕</button>
+                      </div>
+                    </td>
+                  </tr>
+                `)}
+              </tbody>
+            </table>
+          </div>
+        `}
+      </div>
+
+      ${showModal && html`
+        <div class="modal-overlay" onClick=${e => e.target === e.currentTarget && setShowModal(false)}>
+          <div class="modal">
+            <h2 class="modal-title">${editId ? 'עריכת משחק' : 'משחק חדש'}</h2>
+            <div class="form-group">
+              <label class="form-label">תאריך *</label>
+              <input type="date" class="form-control" value=${form.date} onInput=${set('date')} />
+            </div>
+            <div class="form-group">
+              <label class="form-label">נגד (יריבה)</label>
+              <input class="form-control" placeholder="לדוגמה: הפועל כפר סבא" value=${form.opponent} onInput=${set('opponent')} />
+            </div>
+            <div class="form-group">
+              <label class="form-label">הערה</label>
+              <input class="form-control" placeholder="בית/חוץ, שעה..." value=${form.note} onInput=${set('note')} />
+            </div>
+            <div class="form-actions">
+              <button class="btn btn-primary" onClick=${handleSave}>${editId ? 'שמור שינויים' : 'צור משחק'}</button>
+              <button class="btn btn-outline" onClick=${() => setShowModal(false)}>ביטול</button>
+            </div>
+          </div>
+        </div>
+      `}
+    </div>
+  `
+}
+
 // ── PIN Lock ───────────────────────────────────────────────────────
 const PIN = '6040'
 
@@ -1120,16 +1440,22 @@ function App() {
 
   const [activeTab, setActiveTab] = useState('dashboard')
   const [selectedSessionId, setSelectedSessionId] = useState(null)
+  const [selectedMatchId, setSelectedMatchId] = useState(null)
   const [data, setData] = useState(DEFAULT_DATA)
   const [loading, setLoading] = useState(true)
 
   const reload = async () => {
-    const [pl, se, at] = await Promise.all([
+    const [pl, se, at, ma, li] = await Promise.all([
       sb.from('players').select('*').order('name', { ascending: true }),
       sb.from('sessions').select('*').order('date', { ascending: false }),
       sb.from('attendance').select('*'),
+      sb.from('matches').select('*').order('date', { ascending: false }),
+      sb.from('lineup').select('*'),
     ])
-    setData({ players: pl.data || [], sessions: se.data || [], attendance: at.data || [] })
+    setData({
+      players: pl.data || [], sessions: se.data || [], attendance: at.data || [],
+      matches: ma.data || [], lineup: li.data || [],
+    })
     setLoading(false)
   }
 
@@ -1137,6 +1463,7 @@ function App() {
 
   const changeTab = (tab) => {
     if (tab !== 'sessions') setSelectedSessionId(null)
+    if (tab !== 'matches') setSelectedMatchId(null)
     setActiveTab(tab)
   }
 
@@ -1172,6 +1499,15 @@ function App() {
           />`}
         ${activeTab === 'report' && html`
           <${Report} players=${data.players} sessions=${data.sessions} attendance=${data.attendance} />`}
+        ${activeTab === 'matches' && html`
+          <${Matches}
+            matches=${data.matches}
+            players=${data.players}
+            lineup=${data.lineup}
+            selectedId=${selectedMatchId}
+            onSelect=${setSelectedMatchId}
+            onReload=${reload}
+          />`}
       </main>
     </div>
   `

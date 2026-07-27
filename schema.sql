@@ -28,10 +28,32 @@ create table if not exists attendance (
   unique (session_id, player_id)
 );
 
+create table if not exists matches (
+  id uuid primary key default gen_random_uuid(),
+  date date not null,
+  opponent text,
+  note text,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists lineup (
+  id uuid primary key default gen_random_uuid(),
+  match_id uuid not null references matches(id) on delete cascade,
+  player_id uuid not null references players(id) on delete cascade,
+  x real,
+  y real,
+  created_at timestamptz not null default now(),
+  unique (match_id, player_id)
+);
+
 alter table players enable row level security;
 alter table sessions enable row level security;
 alter table attendance enable row level security;
+alter table matches enable row level security;
+alter table lineup enable row level security;
 
 create policy "allow all players" on players for all using (true) with check (true);
 create policy "allow all sessions" on sessions for all using (true) with check (true);
 create policy "allow all attendance" on attendance for all using (true) with check (true);
+create policy "allow all matches" on matches for all using (true) with check (true);
+create policy "allow all lineup" on lineup for all using (true) with check (true);
