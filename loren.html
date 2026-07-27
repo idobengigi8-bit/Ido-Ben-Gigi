@@ -1,0 +1,1150 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>לורן — ניהול חוזים ותשלומים</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --black: #2B1633;
+      --white: #FFFFFF;
+      --gray-50: #FBF5FF;
+      --gray-100: #F3E8FB;
+      --gray-200: #E3CCF0;
+      --gray-300: #CFA9E3;
+      --gray-400: #B282CC;
+      --gray-500: #9459AF;
+      --gray-600: #77408F;
+      --gray-700: #5A2E70;
+      --gray-800: #3E1F4F;
+      --accent: #A21CAF;
+      --accent-light: #F5D9F9;
+      --accent-mid: #C026D3;
+      --green: #059669;
+      --green-light: #D1FAE5;
+      --red: #DC2626;
+      --red-light: #FEE2E2;
+      --amber: #B45309;
+      --amber-light: #FEF3C7;
+      --font: 'Heebo', sans-serif;
+      --sidebar-width: 260px;
+    }
+
+    html, body, #root { height: 100%; font-family: var(--font); background: var(--gray-50); color: var(--black); direction: rtl; }
+
+    /* Layout */
+    .app-layout { display: flex; height: 100vh; overflow: hidden; }
+
+    /* Sidebar */
+    .sidebar {
+      width: var(--sidebar-width);
+      background: linear-gradient(160deg, #2B1633 0%, #6B1E7A 100%);
+      color: var(--white);
+      display: flex; flex-direction: column; padding: 36px 0 24px; flex-shrink: 0; order: -1;
+      box-shadow: 4px 0 24px rgba(43,22,51,0.18);
+    }
+    .sidebar-brand { padding: 0 28px 32px; border-bottom: 1px solid rgba(255,255,255,0.07); margin-bottom: 16px; }
+    .sidebar-brand-name { font-size: 19px; font-weight: 800; letter-spacing: -0.4px; }
+    .sidebar-brand-tag { display: inline-block; margin-top: 8px; font-size: 11px; color: rgba(255,255,255,0.35); }
+    .sidebar-nav { flex: 1; padding: 8px 16px; display: flex; flex-direction: column; gap: 2px; }
+    .nav-item {
+      display: flex; align-items: center; gap: 10px; padding: 11px 14px; border-radius: 10px;
+      cursor: pointer; font-size: 14px; font-weight: 500; color: rgba(255,255,255,0.5);
+      border: none; background: transparent; width: 100%; text-align: right; font-family: var(--font);
+      transition: background 0.15s, color 0.15s;
+    }
+    .nav-item:hover { background: rgba(255,255,255,0.07); color: var(--white); }
+    .nav-item.active { background: rgba(255,255,255,0.18); color: var(--white); border-right: 3px solid rgba(255,255,255,0.6); }
+    .nav-icon { font-size: 15px; opacity: 0.7; flex-shrink: 0; }
+    .nav-item.active .nav-icon { opacity: 1; }
+    .sidebar-footer { padding: 0 28px; font-size: 11px; color: rgba(255,255,255,0.18); }
+
+    /* Main */
+    .main-content { flex: 1; overflow-y: auto; padding: 44px 52px; }
+
+    /* Page Header */
+    .page-header { margin-bottom: 36px; }
+    .page-title { font-size: 26px; font-weight: 700; letter-spacing: -0.5px; }
+    .page-subtitle { font-size: 14px; color: var(--gray-500); margin-top: 5px; }
+    .page-header-row { display: flex; justify-content: space-between; align-items: flex-start; }
+
+    /* Card */
+    .card { background: var(--white); border-radius: 16px; border: 1px solid var(--gray-200); padding: 24px; }
+
+    /* Stats */
+    .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 28px; }
+    .stat-card { background: var(--white); border-radius: 16px; border: 1px solid var(--gray-200); padding: 22px 24px; }
+    .stat-card.black { background: linear-gradient(135deg, var(--accent) 0%, #2B1633 100%); border-color: var(--accent); box-shadow: 0 4px 16px rgba(162,28,175,0.25); }
+    .stat-label { font-size: 12px; font-weight: 500; color: var(--gray-400); margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .stat-card.black .stat-label { color: rgba(255,255,255,0.6); }
+    .stat-value { font-size: 26px; font-weight: 700; letter-spacing: -0.5px; }
+    .stat-card.black .stat-value { color: var(--white); }
+    .stat-value.green { color: var(--green); }
+    .stat-value.red { color: var(--red); }
+    .stat-meta { font-size: 12px; color: var(--gray-400); margin-top: 6px; }
+
+    /* Badges */
+    .badge { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 100px; font-size: 12px; font-weight: 500; white-space: nowrap; }
+    .badge-draft { background: var(--gray-100); color: var(--gray-600); }
+    .badge-sent { background: var(--amber-light); color: var(--amber); }
+    .badge-signed { background: var(--accent-light); color: var(--accent); }
+    .badge-in_progress { background: var(--accent-light); color: var(--accent); }
+    .badge-completed { background: var(--green-light); color: var(--green); }
+    .badge-cancelled { background: var(--red-light); color: var(--red); }
+    .badge-pending { background: var(--amber-light); color: var(--amber); }
+    .badge-paid { background: var(--green-light); color: var(--green); }
+    .badge-overdue { background: var(--red-light); color: var(--red); }
+
+    /* Tables */
+    .table-wrapper { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; }
+    thead th { text-align: right; padding: 10px 14px; font-size: 11px; font-weight: 600; color: var(--gray-400); text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid var(--gray-100); }
+    tbody tr { border-bottom: 1px solid var(--gray-100); transition: background 0.1s; }
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: var(--gray-50); }
+    tbody td { padding: 15px 14px; font-size: 14px; color: var(--gray-600); }
+    .td-bold { font-weight: 600; color: var(--black); }
+    .td-desc { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; color: var(--gray-400); }
+    tr.clickable { cursor: pointer; }
+
+    /* Buttons */
+    .btn { display: inline-flex; align-items: center; gap: 7px; padding: 9px 18px; border-radius: 9px; font-size: 14px; font-weight: 500; cursor: pointer; transition: all 0.13s; border: none; font-family: var(--font); line-height: 1; }
+    .btn-primary { background: linear-gradient(135deg, var(--accent) 0%, #7A1590 100%); color: var(--white); box-shadow: 0 2px 8px rgba(162,28,175,0.3); }
+    .btn-primary:hover { background: linear-gradient(135deg, #b41ec2 0%, #8a189e 100%); box-shadow: 0 4px 14px rgba(162,28,175,0.4); }
+    .btn-outline { background: transparent; color: var(--accent); border: 1.5px solid var(--gray-200); }
+    .btn-outline:hover { border-color: var(--accent); background: var(--accent-light); }
+    .btn-ghost { background: transparent; color: var(--gray-400); border: none; padding: 6px 9px; border-radius: 7px; font-family: var(--font); cursor: pointer; font-size: 14px; transition: all 0.13s; }
+    .btn-ghost:hover { color: var(--accent); background: var(--accent-light); }
+    .btn-danger { background: transparent; color: var(--gray-300); border: none; padding: 6px 9px; border-radius: 7px; cursor: pointer; font-size: 13px; font-family: var(--font); transition: all 0.13s; }
+    .btn-danger:hover { color: var(--red); background: var(--red-light); }
+
+    /* Section Header */
+    .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
+    .section-title { font-size: 15px; font-weight: 600; }
+
+    /* Filter Tabs */
+    .filter-tabs { display: flex; gap: 8px; margin-bottom: 22px; flex-wrap: wrap; }
+    .filter-tab { padding: 6px 15px; border-radius: 8px; font-size: 13px; font-weight: 500; cursor: pointer; border: 1.5px solid var(--gray-200); background: transparent; color: var(--gray-500); transition: all 0.13s; font-family: var(--font); }
+    .filter-tab:hover { border-color: var(--gray-400); color: var(--black); }
+    .filter-tab.active { background: var(--accent); color: var(--white); border-color: var(--accent); }
+
+    /* Modal */
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.45); display: flex; align-items: center; justify-content: center; z-index: 200; padding: 20px; backdrop-filter: blur(2px); }
+    .modal { background: var(--white); border-radius: 20px; padding: 32px; width: 100%; max-width: 520px; max-height: 90vh; overflow-y: auto; box-shadow: 0 24px 64px rgba(0,0,0,0.15); }
+    .modal-title { font-size: 19px; font-weight: 700; margin-bottom: 24px; letter-spacing: -0.3px; }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .form-group { margin-bottom: 18px; }
+    .form-label { display: block; font-size: 12px; font-weight: 600; color: var(--gray-500); margin-bottom: 7px; text-transform: uppercase; letter-spacing: 0.4px; }
+    .form-control { width: 100%; padding: 10px 13px; border: 1.5px solid var(--gray-200); border-radius: 9px; font-size: 14px; font-family: var(--font); color: var(--black); background: var(--white); transition: border-color 0.15s; direction: rtl; }
+    .form-control:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(162,28,175,0.12); }
+    .form-control::placeholder { color: var(--gray-300); }
+    textarea.form-control { resize: vertical; min-height: 90px; }
+    select.form-control { cursor: pointer; }
+    .form-actions { display: flex; gap: 10px; margin-top: 26px; }
+
+    /* Empty State */
+    .empty-state { text-align: center; padding: 52px 20px; }
+    .empty-icon { font-size: 32px; margin-bottom: 10px; }
+    .empty-text { font-size: 14px; color: var(--gray-400); }
+
+    .back-link { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--gray-500); cursor: pointer; background: none; border: none; font-family: var(--font); margin-bottom: 14px; padding: 4px 0; }
+    .back-link:hover { color: var(--accent); }
+
+    .detail-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; margin-bottom: 24px; }
+    .detail-item { }
+    .detail-label { font-size: 11px; font-weight: 600; color: var(--gray-400); text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 4px; }
+    .detail-value { font-size: 15px; font-weight: 600; color: var(--black); }
+    .detail-note { font-size: 14px; color: var(--gray-600); line-height: 1.6; white-space: pre-wrap; }
+
+    /* ── Mobile / Tablet ──────────────────────────────────────────── */
+    @media (max-width: 1024px) {
+      .sidebar {
+        position: fixed; bottom: 0; left: 0; right: 0;
+        width: 100%; height: auto; flex-direction: row;
+        padding: 0 0 env(safe-area-inset-bottom);
+        border-top: 1px solid rgba(255,255,255,0.1); z-index: 100;
+      }
+      .sidebar-brand, .sidebar-footer { display: none; }
+      .sidebar-nav { flex-direction: row; padding: 6px 8px; gap: 0; justify-content: space-around; }
+      .nav-item {
+        flex-direction: column; gap: 3px; padding: 10px 20px;
+        font-size: 11px; border-radius: 12px; flex: 1;
+        justify-content: center; align-items: center;
+      }
+      .nav-icon { font-size: 22px; opacity: 0.7; }
+
+      .main-content { padding: 24px 16px 100px; }
+      .app-layout { flex-direction: column; }
+
+      .page-title { font-size: 22px; }
+      .page-header { margin-bottom: 24px; }
+      .page-header-row { flex-direction: column; gap: 14px; }
+      .page-header-row .btn-primary { width: 100%; justify-content: center; padding: 14px; }
+
+      .stats-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
+      .stat-card { padding: 16px 18px; }
+      .stat-value { font-size: 22px; }
+
+      .detail-grid { grid-template-columns: 1fr; }
+
+      tbody td { padding: 18px 10px; }
+      thead th { padding: 10px; }
+      .btn-danger, .btn-ghost { padding: 10px 12px; font-size: 15px; }
+
+      .form-row { grid-template-columns: 1fr; }
+      .form-control { padding: 14px; font-size: 16px; }
+      .form-actions { flex-direction: column; }
+      .form-actions .btn { width: 100%; justify-content: center; padding: 14px; }
+
+      .modal-overlay { align-items: flex-end; padding: 0; }
+      .modal { border-radius: 24px 24px 0 0; padding: 28px 20px 36px; max-height: 92vh; }
+
+      .filter-tabs { gap: 6px; }
+      .filter-tab { padding: 8px 14px; font-size: 13px; }
+    }
+  </style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="module">
+import { h, render } from 'https://esm.sh/preact@10.19.3'
+import { useState, useEffect } from 'https://esm.sh/preact@10.19.3/hooks'
+import htm from 'https://esm.sh/htm@3.1.1'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+const html = htm.bind(h)
+
+// ── Supabase ───────────────────────────────────────────────────────
+// TODO: להחליף בפרטי הפרויקט הנפרד שנוצר בשביל לורן (Project Settings → API)
+const sb = createClient(
+  'https://YOUR-PROJECT.supabase.co',
+  'YOUR-ANON-PUBLIC-KEY'
+)
+
+// ── Utilities ──────────────────────────────────────────────────────
+const DEFAULT_DATA = { clients: [], contracts: [], payments: [] }
+
+const today = () => new Date().toISOString().split('T')[0]
+const fmtDate = (d) => d ? new Date(d).toLocaleDateString('he-IL') : '—'
+const fmtMoney = (amount, currency) => new Intl.NumberFormat('he-IL', { style: 'currency', currency: currency || 'ILS', maximumFractionDigits: 0 }).format(amount || 0)
+
+const CONTRACT_STATUS_LABELS = { draft: 'טיוטה', sent: 'נשלח', signed: 'נחתם', in_progress: 'בתהליך', completed: 'הושלם', cancelled: 'בוטל' }
+const PAYMENT_STATUS_LABELS  = { pending: 'ממתין', paid: 'שולם', overdue: 'באיחור', cancelled: 'בוטל' }
+
+// תשלום "ממתין" שעבר את תאריך היעד מוצג כ"באיחור" גם בלי לשנות את הסטטוס השמור בפועל
+const effectivePaymentStatus = (p) => {
+  if (p.status === 'pending' && p.due_date && p.due_date < today()) return 'overdue'
+  return p.status
+}
+
+const paymentsForContract = (payments, contractId) => payments.filter(p => p.contract_id === contractId)
+const contractsForClient  = (contracts, clientId) => contracts.filter(c => c.client_id === clientId)
+
+// ── Sidebar ────────────────────────────────────────────────────────
+function Sidebar({ activeTab, setActiveTab }) {
+  const nav = [
+    { id: 'dashboard', label: 'דשבורד',   icon: '⊞' },
+    { id: 'clients',   label: 'לקוחות',   icon: '◈' },
+    { id: 'contracts', label: 'חוזים',    icon: '▤' },
+    { id: 'payments',  label: 'תשלומים',  icon: '◎' },
+  ]
+  return html`
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <div class="sidebar-brand-name">לורן</div>
+        <span class="sidebar-brand-tag">ניהול חוזים ותשלומים</span>
+      </div>
+      <nav class="sidebar-nav">
+        ${nav.map(item => html`
+          <button
+            key=${item.id}
+            class=${'nav-item' + (activeTab === item.id ? ' active' : '')}
+            onClick=${() => setActiveTab(item.id)}
+          >
+            <span class="nav-icon">${item.icon}</span>
+            ${item.label}
+          </button>
+        `)}
+      </nav>
+      <div class="sidebar-footer">© ${new Date().getFullYear()} לורן</div>
+    </aside>
+  `
+}
+
+// ── Dashboard ──────────────────────────────────────────────────────
+function Dashboard({ clients, contracts, payments, setActiveTab }) {
+  const activeContracts = contracts.filter(c => c.status === 'signed' || c.status === 'in_progress')
+  const pendingPayments  = payments.filter(p => effectivePaymentStatus(p) === 'pending')
+  const overduePayments  = payments.filter(p => effectivePaymentStatus(p) === 'overdue')
+  const paidPayments     = payments.filter(p => p.status === 'paid')
+
+  const sumBy = (list) => list.reduce((s, p) => s + (Number(p.amount) || 0), 0)
+
+  const upcoming = [...pendingPayments, ...overduePayments]
+    .sort((a, b) => (a.due_date || '9999').localeCompare(b.due_date || '9999'))
+    .slice(0, 6)
+
+  const contractOf = (id) => contracts.find(c => c.id === id)
+  const clientOf = (id) => clients.find(c => c.id === id)
+
+  const recentContracts = [...contracts].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, 5)
+
+  return html`
+    <div>
+      <div class="page-header">
+        <h1 class="page-title">שלום 👋</h1>
+        <p class="page-subtitle">תמונת מצב — חוזים ותשלומים של לורן</p>
+      </div>
+
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-label">חוזים פעילים</div>
+          <div class="stat-value">${activeContracts.length}</div>
+          <div class="stat-meta">מתוך ${contracts.length} סה"כ</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">תשלומים ממתינים</div>
+          <div class="stat-value">${fmtMoney(sumBy(pendingPayments))}</div>
+          <div class="stat-meta">${pendingPayments.length} תשלומים</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">תשלומים באיחור</div>
+          <div class="stat-value red">${overduePayments.length}</div>
+          <div class="stat-meta">${fmtMoney(sumBy(overduePayments))}</div>
+        </div>
+        <div class="stat-card black">
+          <div class="stat-label">התקבל בפועל</div>
+          <div class="stat-value">${fmtMoney(sumBy(paidPayments))}</div>
+        </div>
+      </div>
+
+      <div class="card" style=${{ marginBottom: 28 }}>
+        <div class="section-header">
+          <h2 class="section-title">תשלומים קרובים</h2>
+          <button class="btn btn-ghost" style=${{ fontSize: 13 }} onClick=${() => setActiveTab('payments')}>
+            הצג הכל ←
+          </button>
+        </div>
+        ${upcoming.length === 0 ? html`
+          <div class="empty-state">
+            <div class="empty-icon">✓</div>
+            <div class="empty-text">אין תשלומים ממתינים כרגע</div>
+          </div>
+        ` : html`
+          <div class="table-wrapper">
+            <table>
+              <thead>
+                <tr><th>לקוח</th><th>חוזה</th><th>סכום</th><th>תאריך יעד</th><th>סטטוס</th></tr>
+              </thead>
+              <tbody>
+                ${upcoming.map(p => {
+                  const c = contractOf(p.contract_id)
+                  const cl = c ? clientOf(c.client_id) : null
+                  const eff = effectivePaymentStatus(p)
+                  return html`
+                    <tr key=${p.id}>
+                      <td class="td-bold">${cl ? cl.name : '—'}</td>
+                      <td>${c ? c.title : '—'}</td>
+                      <td>${fmtMoney(p.amount, c && c.currency)}</td>
+                      <td>${fmtDate(p.due_date)}</td>
+                      <td><span class=${'badge badge-' + eff}>${PAYMENT_STATUS_LABELS[eff]}</span></td>
+                    </tr>
+                  `
+                })}
+              </tbody>
+            </table>
+          </div>
+        `}
+      </div>
+
+      <div class="card">
+        <div class="section-header">
+          <h2 class="section-title">חוזים אחרונים</h2>
+          <button class="btn btn-ghost" style=${{ fontSize: 13 }} onClick=${() => setActiveTab('contracts')}>
+            הצג הכל ←
+          </button>
+        </div>
+        ${recentContracts.length === 0 ? html`
+          <div class="empty-state">
+            <div class="empty-icon">▤</div>
+            <div class="empty-text">אין חוזים עדיין — עבור ל"חוזים" כדי להוסיף</div>
+          </div>
+        ` : html`
+          <div class="table-wrapper">
+            <table>
+              <thead>
+                <tr><th>לקוח</th><th>כותרת</th><th>סכום</th><th>סטטוס</th></tr>
+              </thead>
+              <tbody>
+                ${recentContracts.map(c => {
+                  const cl = clientOf(c.client_id)
+                  return html`
+                    <tr key=${c.id}>
+                      <td class="td-bold">${cl ? cl.name : '—'}</td>
+                      <td>${c.title}</td>
+                      <td>${fmtMoney(c.amount, c.currency)}</td>
+                      <td><span class=${'badge badge-' + c.status}>${CONTRACT_STATUS_LABELS[c.status]}</span></td>
+                    </tr>
+                  `
+                })}
+              </tbody>
+            </table>
+          </div>
+        `}
+      </div>
+    </div>
+  `
+}
+
+// ── Clients ────────────────────────────────────────────────────────
+const EMPTY_CLIENT = { name: '', contact_name: '', phone: '', email: '', notes: '' }
+
+function Clients({ clients, contracts, onReload, onOpenClient }) {
+  const [showModal, setShowModal] = useState(false)
+  const [editId, setEditId]       = useState(null)
+  const [form, setForm]           = useState(EMPTY_CLIENT)
+
+  const sorted = [...clients].sort((a, b) => a.name.localeCompare(b.name, 'he'))
+  const set = (field) => (e) => setForm(f => ({ ...f, [field]: e.target.value }))
+
+  const openAdd = () => { setForm(EMPTY_CLIENT); setEditId(null); setShowModal(true) }
+  const openEdit = (c, e) => { e.stopPropagation(); setForm({ name: c.name, contact_name: c.contact_name || '', phone: c.phone || '', email: c.email || '', notes: c.notes || '' }); setEditId(c.id); setShowModal(true) }
+
+  const handleSave = async () => {
+    if (!form.name.trim()) return
+    if (editId) {
+      await sb.from('clients').update(form).eq('id', editId)
+    } else {
+      await sb.from('clients').insert(form)
+    }
+    setShowModal(false)
+    onReload()
+  }
+
+  const handleDelete = async (id, e) => {
+    e.stopPropagation()
+    if (window.confirm('למחוק את הלקוח? כל החוזים והתשלומים שלו יימחקו גם הם.')) {
+      await sb.from('clients').delete().eq('id', id)
+      onReload()
+    }
+  }
+
+  return html`
+    <div>
+      <div class="page-header">
+        <div class="page-header-row">
+          <div>
+            <h1 class="page-title">לקוחות</h1>
+            <p class="page-subtitle">מותגים ולקוחות שעובדים עם לורן</p>
+          </div>
+          <button class="btn btn-primary" onClick=${openAdd}>+ הוסף לקוח</button>
+        </div>
+      </div>
+
+      <div class="card">
+        ${sorted.length === 0 ? html`
+          <div class="empty-state">
+            <div class="empty-icon">👥</div>
+            <div class="empty-text">אין לקוחות עדיין — לחץ "+ הוסף לקוח"</div>
+          </div>
+        ` : html`
+          <div class="table-wrapper">
+            <table>
+              <thead>
+                <tr><th>שם</th><th>איש קשר</th><th>טלפון</th><th>אימייל</th><th>חוזים</th><th></th></tr>
+              </thead>
+              <tbody>
+                ${sorted.map(c => html`
+                  <tr key=${c.id} class="clickable" onClick=${() => onOpenClient(c.id)}>
+                    <td class="td-bold">${c.name}</td>
+                    <td>${c.contact_name || '—'}</td>
+                    <td>${c.phone || '—'}</td>
+                    <td>${c.email || '—'}</td>
+                    <td>${contractsForClient(contracts, c.id).length}</td>
+                    <td>
+                      <div style=${{ display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
+                        <button class="btn-ghost" onClick=${e => openEdit(c, e)}>✏️</button>
+                        <button class="btn-danger" onClick=${e => handleDelete(c.id, e)}>✕</button>
+                      </div>
+                    </td>
+                  </tr>
+                `)}
+              </tbody>
+            </table>
+          </div>
+        `}
+      </div>
+
+      ${showModal && html`
+        <div class="modal-overlay" onClick=${e => e.target === e.currentTarget && setShowModal(false)}>
+          <div class="modal">
+            <h2 class="modal-title">${editId ? 'עריכת לקוח' : 'לקוח חדש'}</h2>
+
+            <div class="form-group">
+              <label class="form-label">שם המותג/לקוח *</label>
+              <input class="form-control" placeholder="לדוגמה: מותג XYZ" value=${form.name} onInput=${set('name')} />
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">איש קשר</label>
+                <input class="form-control" placeholder="שם איש הקשר" value=${form.contact_name} onInput=${set('contact_name')} />
+              </div>
+              <div class="form-group">
+                <label class="form-label">טלפון</label>
+                <input class="form-control" placeholder="050-0000000" value=${form.phone} onInput=${set('phone')} />
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">אימייל</label>
+              <input class="form-control" placeholder="email@example.com" value=${form.email} onInput=${set('email')} />
+            </div>
+            <div class="form-group">
+              <label class="form-label">הערות</label>
+              <textarea class="form-control" placeholder="פרטים נוספים..." value=${form.notes} onInput=${set('notes')}></textarea>
+            </div>
+            <div class="form-actions">
+              <button class="btn btn-primary" onClick=${handleSave}>${editId ? 'שמור שינויים' : 'הוסף לקוח'}</button>
+              <button class="btn btn-outline" onClick=${() => setShowModal(false)}>ביטול</button>
+            </div>
+          </div>
+        </div>
+      `}
+    </div>
+  `
+}
+
+// ── Contract Detail (with payments) ───────────────────────────────
+const EMPTY_PAYMENT = { amount: '', due_date: '', status: 'pending', notes: '' }
+
+function ContractDetail({ contract, client, payments, onReload, onBack }) {
+  const records = paymentsForContract(payments, contract.id).sort((a, b) => (a.due_date || '9999').localeCompare(b.due_date || '9999'))
+  const [showModal, setShowModal] = useState(false)
+  const [editId, setEditId]       = useState(null)
+  const [form, setForm]           = useState(EMPTY_PAYMENT)
+
+  const set = (field) => (e) => setForm(f => ({ ...f, [field]: e.target.value }))
+
+  const openAdd = () => { setForm(EMPTY_PAYMENT); setEditId(null); setShowModal(true) }
+  const openEdit = (p) => { setForm({ amount: p.amount, due_date: p.due_date || '', status: p.status, notes: p.notes || '' }); setEditId(p.id); setShowModal(true) }
+
+  const handleSave = async () => {
+    if (!form.amount) return
+    const payload = { ...form, amount: Number(form.amount), contract_id: contract.id, due_date: form.due_date || null }
+    if (editId) {
+      await sb.from('payments').update(payload).eq('id', editId)
+    } else {
+      await sb.from('payments').insert(payload)
+    }
+    setShowModal(false)
+    onReload()
+  }
+
+  const handleDelete = async (id) => {
+    if (window.confirm('למחוק את התשלום?')) {
+      await sb.from('payments').delete().eq('id', id)
+      onReload()
+    }
+  }
+
+  const markPaid = async (p) => {
+    await sb.from('payments').update({ status: 'paid', paid_date: today() }).eq('id', p.id)
+    onReload()
+  }
+
+  const totalAmount = records.reduce((s, p) => s + (Number(p.amount) || 0), 0)
+  const paidAmount  = records.filter(p => p.status === 'paid').reduce((s, p) => s + (Number(p.amount) || 0), 0)
+
+  return html`
+    <div>
+      <button class="back-link" onClick=${onBack}>→ חזרה לרשימת החוזים</button>
+      <div class="page-header">
+        <div class="page-header-row">
+          <div>
+            <h1 class="page-title">${contract.title}</h1>
+            <p class="page-subtitle">${client ? client.name : '—'}</p>
+          </div>
+          <span class=${'badge badge-' + contract.status} style=${{ fontSize: 13, padding: '6px 14px' }}>${CONTRACT_STATUS_LABELS[contract.status]}</span>
+        </div>
+      </div>
+
+      <div class="detail-grid">
+        <div class="detail-item">
+          <div class="detail-label">סכום חוזה</div>
+          <div class="detail-value">${fmtMoney(contract.amount, contract.currency)}</div>
+        </div>
+        <div class="detail-item">
+          <div class="detail-label">שולם עד כה</div>
+          <div class="detail-value">${fmtMoney(paidAmount, contract.currency)}</div>
+        </div>
+        <div class="detail-item">
+          <div class="detail-label">תאריך התחלה</div>
+          <div class="detail-value">${fmtDate(contract.start_date)}</div>
+        </div>
+        <div class="detail-item">
+          <div class="detail-label">תאריך יעד</div>
+          <div class="detail-value">${fmtDate(contract.due_date)}</div>
+        </div>
+      </div>
+
+      ${contract.deliverables && html`
+        <div class="card" style=${{ marginBottom: 24 }}>
+          <div class="section-header"><h2 class="section-title">דליברבלים / תוצרים</h2></div>
+          <div class="detail-note">${contract.deliverables}</div>
+        </div>
+      `}
+
+      ${contract.notes && html`
+        <div class="card" style=${{ marginBottom: 24 }}>
+          <div class="section-header"><h2 class="section-title">הערות</h2></div>
+          <div class="detail-note">${contract.notes}</div>
+        </div>
+      `}
+
+      <div class="card">
+        <div class="section-header">
+          <h2 class="section-title">תשלומים (${records.length})</h2>
+          <button class="btn btn-primary" onClick=${openAdd}>+ הוסף תשלום</button>
+        </div>
+        ${records.length === 0 ? html`
+          <div class="empty-state">
+            <div class="empty-icon">💳</div>
+            <div class="empty-text">אין תשלומים עדיין — לחץ "+ הוסף תשלום"</div>
+          </div>
+        ` : html`
+          <div class="table-wrapper">
+            <table>
+              <thead>
+                <tr><th>סכום</th><th>תאריך יעד</th><th>שולם בתאריך</th><th>סטטוס</th><th></th></tr>
+              </thead>
+              <tbody>
+                ${records.map(p => {
+                  const eff = effectivePaymentStatus(p)
+                  return html`
+                    <tr key=${p.id}>
+                      <td class="td-bold">${fmtMoney(p.amount, contract.currency)}</td>
+                      <td>${fmtDate(p.due_date)}</td>
+                      <td>${fmtDate(p.paid_date)}</td>
+                      <td><span class=${'badge badge-' + eff}>${PAYMENT_STATUS_LABELS[eff]}</span></td>
+                      <td>
+                        <div style=${{ display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
+                          ${p.status !== 'paid' && html`<button class="btn-ghost" onClick=${() => markPaid(p)}>✓ סמן שולם</button>`}
+                          <button class="btn-ghost" onClick=${() => openEdit(p)}>✏️</button>
+                          <button class="btn-danger" onClick=${() => handleDelete(p.id)}>✕</button>
+                        </div>
+                      </td>
+                    </tr>
+                  `
+                })}
+              </tbody>
+            </table>
+          </div>
+        `}
+      </div>
+
+      ${showModal && html`
+        <div class="modal-overlay" onClick=${e => e.target === e.currentTarget && setShowModal(false)}>
+          <div class="modal">
+            <h2 class="modal-title">${editId ? 'עריכת תשלום' : 'תשלום חדש'}</h2>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">סכום *</label>
+                <input type="number" class="form-control" placeholder="0" value=${form.amount} onInput=${set('amount')} />
+              </div>
+              <div class="form-group">
+                <label class="form-label">תאריך יעד</label>
+                <input type="date" class="form-control" value=${form.due_date} onInput=${set('due_date')} />
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">סטטוס</label>
+              <select class="form-control" value=${form.status} onInput=${set('status')}>
+                <option value="pending">ממתין</option>
+                <option value="paid">שולם</option>
+                <option value="cancelled">בוטל</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">הערות</label>
+              <textarea class="form-control" placeholder="הערות לתשלום..." value=${form.notes} onInput=${set('notes')}></textarea>
+            </div>
+            <div class="form-actions">
+              <button class="btn btn-primary" onClick=${handleSave}>${editId ? 'שמור שינויים' : 'הוסף תשלום'}</button>
+              <button class="btn btn-outline" onClick=${() => setShowModal(false)}>ביטול</button>
+            </div>
+          </div>
+        </div>
+      `}
+    </div>
+  `
+}
+
+// ── Contracts ──────────────────────────────────────────────────────
+const EMPTY_CONTRACT = { client_id: '', title: '', amount: '', currency: 'ILS', status: 'draft', start_date: '', due_date: '', deliverables: '', notes: '' }
+
+function Contracts({ contracts, clients, payments, selectedId, onSelect, onReload }) {
+  const [filter, setFilter]       = useState('all')
+  const [showModal, setShowModal] = useState(false)
+  const [editId, setEditId]       = useState(null)
+  const [form, setForm]           = useState(EMPTY_CONTRACT)
+
+  const selected = selectedId ? contracts.find(c => c.id === selectedId) : null
+  if (selected) {
+    const client = clients.find(c => c.id === selected.client_id)
+    return html`<${ContractDetail} contract=${selected} client=${client} payments=${payments} onReload=${onReload} onBack=${() => onSelect(null)} />`
+  }
+
+  const clientOf = (id) => clients.find(c => c.id === id)
+
+  const counts = {
+    all: contracts.length,
+    active: contracts.filter(c => c.status === 'signed' || c.status === 'in_progress').length,
+    draft: contracts.filter(c => c.status === 'draft' || c.status === 'sent').length,
+    completed: contracts.filter(c => c.status === 'completed').length,
+  }
+
+  const filtered = contracts.filter(c => {
+    if (filter === 'all') return true
+    if (filter === 'active') return c.status === 'signed' || c.status === 'in_progress'
+    if (filter === 'draft') return c.status === 'draft' || c.status === 'sent'
+    if (filter === 'completed') return c.status === 'completed'
+    return true
+  }).sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+
+  const set = (field) => (e) => setForm(f => ({ ...f, [field]: e.target.value }))
+
+  const openAdd = () => { setForm(EMPTY_CONTRACT); setEditId(null); setShowModal(true) }
+  const openEdit = (c, e) => {
+    e.stopPropagation()
+    setForm({
+      client_id: c.client_id, title: c.title, amount: c.amount || '', currency: c.currency || 'ILS',
+      status: c.status, start_date: c.start_date || '', due_date: c.due_date || '',
+      deliverables: c.deliverables || '', notes: c.notes || '',
+    })
+    setEditId(c.id)
+    setShowModal(true)
+  }
+
+  const handleSave = async () => {
+    if (!form.title.trim() || !form.client_id) return
+    const payload = {
+      ...form,
+      amount: form.amount ? Number(form.amount) : null,
+      start_date: form.start_date || null,
+      due_date: form.due_date || null,
+    }
+    if (editId) {
+      await sb.from('contracts').update(payload).eq('id', editId)
+    } else {
+      await sb.from('contracts').insert(payload)
+    }
+    setShowModal(false)
+    onReload()
+  }
+
+  const handleDelete = async (id, e) => {
+    e.stopPropagation()
+    if (window.confirm('למחוק את החוזה? כל התשלומים שלו יימחקו גם הם.')) {
+      await sb.from('contracts').delete().eq('id', id)
+      onReload()
+    }
+  }
+
+  const filterTabs = [
+    { id: 'all',       label: `הכל (${counts.all})` },
+    { id: 'active',    label: `פעילים (${counts.active})` },
+    { id: 'draft',     label: `טיוטה/נשלח (${counts.draft})` },
+    { id: 'completed', label: `הושלמו (${counts.completed})` },
+  ]
+
+  return html`
+    <div>
+      <div class="page-header">
+        <div class="page-header-row">
+          <div>
+            <h1 class="page-title">חוזים</h1>
+            <p class="page-subtitle">לחץ על חוזה כדי לנהל תשלומים ופרטים</p>
+          </div>
+          <button class="btn btn-primary" onClick=${openAdd} disabled=${clients.length === 0}>+ חוזה חדש</button>
+        </div>
+      </div>
+
+      ${clients.length === 0 && html`
+        <div class="card" style=${{ marginBottom: 24, color: 'var(--gray-500)', fontSize: 14 }}>
+          כדי ליצור חוזה יש קודם להוסיף לקוח בטאב "לקוחות".
+        </div>
+      `}
+
+      <div class="filter-tabs">
+        ${filterTabs.map(t => html`
+          <button key=${t.id} class=${'filter-tab' + (filter === t.id ? ' active' : '')} onClick=${() => setFilter(t.id)}>
+            ${t.label}
+          </button>
+        `)}
+      </div>
+
+      <div class="card">
+        ${filtered.length === 0 ? html`
+          <div class="empty-state">
+            <div class="empty-icon">▤</div>
+            <div class="empty-text">אין חוזים בקטגוריה זו</div>
+          </div>
+        ` : html`
+          <div class="table-wrapper">
+            <table>
+              <thead>
+                <tr><th>לקוח</th><th>כותרת</th><th>סכום</th><th>תאריך יעד</th><th>סטטוס</th><th></th></tr>
+              </thead>
+              <tbody>
+                ${filtered.map(c => {
+                  const cl = clientOf(c.client_id)
+                  return html`
+                    <tr key=${c.id} class="clickable" onClick=${() => onSelect(c.id)}>
+                      <td class="td-bold">${cl ? cl.name : '—'}</td>
+                      <td>${c.title}</td>
+                      <td>${fmtMoney(c.amount, c.currency)}</td>
+                      <td>${fmtDate(c.due_date)}</td>
+                      <td><span class=${'badge badge-' + c.status}>${CONTRACT_STATUS_LABELS[c.status]}</span></td>
+                      <td>
+                        <div style=${{ display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
+                          <button class="btn-ghost" onClick=${e => openEdit(c, e)}>✏️</button>
+                          <button class="btn-danger" onClick=${e => handleDelete(c.id, e)}>✕</button>
+                        </div>
+                      </td>
+                    </tr>
+                  `
+                })}
+              </tbody>
+            </table>
+          </div>
+        `}
+      </div>
+
+      ${showModal && html`
+        <div class="modal-overlay" onClick=${e => e.target === e.currentTarget && setShowModal(false)}>
+          <div class="modal">
+            <h2 class="modal-title">${editId ? 'עריכת חוזה' : 'חוזה חדש'}</h2>
+
+            <div class="form-group">
+              <label class="form-label">לקוח *</label>
+              <select class="form-control" value=${form.client_id} onInput=${set('client_id')}>
+                <option value="">בחר לקוח...</option>
+                ${clients.map(c => html`<option key=${c.id} value=${c.id}>${c.name}</option>`)}
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">כותרת החוזה *</label>
+              <input class="form-control" placeholder="לדוגמה: קמפיין קיץ 2026" value=${form.title} onInput=${set('title')} />
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">סכום</label>
+                <input type="number" class="form-control" placeholder="0" value=${form.amount} onInput=${set('amount')} />
+              </div>
+              <div class="form-group">
+                <label class="form-label">מטבע</label>
+                <select class="form-control" value=${form.currency} onInput=${set('currency')}>
+                  <option value="ILS">₪ שקל</option>
+                  <option value="USD">$ דולר</option>
+                  <option value="EUR">€ יורו</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">תאריך התחלה</label>
+                <input type="date" class="form-control" value=${form.start_date} onInput=${set('start_date')} />
+              </div>
+              <div class="form-group">
+                <label class="form-label">תאריך יעד</label>
+                <input type="date" class="form-control" value=${form.due_date} onInput=${set('due_date')} />
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">סטטוס</label>
+              <select class="form-control" value=${form.status} onInput=${set('status')}>
+                <option value="draft">טיוטה</option>
+                <option value="sent">נשלח</option>
+                <option value="signed">נחתם</option>
+                <option value="in_progress">בתהליך</option>
+                <option value="completed">הושלם</option>
+                <option value="cancelled">בוטל</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">דליברבלים / תוצרים</label>
+              <textarea class="form-control" placeholder="לדוגמה: 3 פוסטים + 2 סטוריז..." value=${form.deliverables} onInput=${set('deliverables')}></textarea>
+            </div>
+            <div class="form-group">
+              <label class="form-label">הערות</label>
+              <textarea class="form-control" placeholder="הערות נוספות..." value=${form.notes} onInput=${set('notes')}></textarea>
+            </div>
+            <div class="form-actions">
+              <button class="btn btn-primary" onClick=${handleSave}>${editId ? 'שמור שינויים' : 'צור חוזה'}</button>
+              <button class="btn btn-outline" onClick=${() => setShowModal(false)}>ביטול</button>
+            </div>
+          </div>
+        </div>
+      `}
+    </div>
+  `
+}
+
+// ── Payments (global view) ─────────────────────────────────────────
+function Payments({ payments, contracts, clients, onOpenContract }) {
+  const [filter, setFilter] = useState('all')
+
+  const contractOf = (id) => contracts.find(c => c.id === id)
+  const clientOf = (id) => clients.find(c => c.id === id)
+
+  const withEff = payments.map(p => ({ ...p, eff: effectivePaymentStatus(p) }))
+
+  const counts = {
+    all: withEff.length,
+    pending: withEff.filter(p => p.eff === 'pending').length,
+    overdue: withEff.filter(p => p.eff === 'overdue').length,
+    paid: withEff.filter(p => p.eff === 'paid').length,
+  }
+
+  const filtered = withEff
+    .filter(p => filter === 'all' || p.eff === filter)
+    .sort((a, b) => (a.due_date || '9999').localeCompare(b.due_date || '9999'))
+
+  const filterTabs = [
+    { id: 'all',     label: `הכל (${counts.all})` },
+    { id: 'pending', label: `ממתין (${counts.pending})` },
+    { id: 'overdue', label: `באיחור (${counts.overdue})` },
+    { id: 'paid',    label: `שולם (${counts.paid})` },
+  ]
+
+  const exportCsv = () => {
+    const header = ['לקוח', 'חוזה', 'סכום', 'תאריך יעד', 'שולם בתאריך', 'סטטוס']
+    const lines = filtered.map(p => {
+      const c = contractOf(p.contract_id)
+      const cl = c ? clientOf(c.client_id) : null
+      return [cl ? cl.name : '', c ? c.title : '', p.amount, fmtDate(p.due_date), fmtDate(p.paid_date), PAYMENT_STATUS_LABELS[p.eff]]
+    })
+    const csv = '﻿' + [header, ...lines].map(row => row.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n')
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `תשלומים-${today()}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  return html`
+    <div>
+      <div class="page-header">
+        <div class="page-header-row">
+          <div>
+            <h1 class="page-title">תשלומים</h1>
+            <p class="page-subtitle">כל התשלומים מכל החוזים, במקום אחד</p>
+          </div>
+          ${filtered.length > 0 && html`<button class="btn btn-outline" onClick=${exportCsv}>ייצוא CSV</button>`}
+        </div>
+      </div>
+
+      <div class="filter-tabs">
+        ${filterTabs.map(t => html`
+          <button key=${t.id} class=${'filter-tab' + (filter === t.id ? ' active' : '')} onClick=${() => setFilter(t.id)}>
+            ${t.label}
+          </button>
+        `)}
+      </div>
+
+      <div class="card">
+        ${filtered.length === 0 ? html`
+          <div class="empty-state">
+            <div class="empty-icon">💳</div>
+            <div class="empty-text">אין תשלומים בקטגוריה זו</div>
+          </div>
+        ` : html`
+          <div class="table-wrapper">
+            <table>
+              <thead>
+                <tr><th>לקוח</th><th>חוזה</th><th>סכום</th><th>תאריך יעד</th><th>שולם בתאריך</th><th>סטטוס</th></tr>
+              </thead>
+              <tbody>
+                ${filtered.map(p => {
+                  const c = contractOf(p.contract_id)
+                  const cl = c ? clientOf(c.client_id) : null
+                  return html`
+                    <tr key=${p.id} class=${c ? 'clickable' : ''} onClick=${() => c && onOpenContract(c.id)}>
+                      <td class="td-bold">${cl ? cl.name : '—'}</td>
+                      <td>${c ? c.title : '—'}</td>
+                      <td>${fmtMoney(p.amount, c && c.currency)}</td>
+                      <td>${fmtDate(p.due_date)}</td>
+                      <td>${fmtDate(p.paid_date)}</td>
+                      <td><span class=${'badge badge-' + p.eff}>${PAYMENT_STATUS_LABELS[p.eff]}</span></td>
+                    </tr>
+                  `
+                })}
+              </tbody>
+            </table>
+          </div>
+        `}
+      </div>
+    </div>
+  `
+}
+
+// ── PIN Lock ───────────────────────────────────────────────────────
+const PIN = '0000' // TODO: להחליף בקוד אישי בן 4 ספרות
+
+function PinScreen({ onUnlock }) {
+  const [value, setValue] = useState('')
+  const [error, setError] = useState(false)
+
+  const tryValue = (v) => {
+    setValue(v)
+    setError(false)
+    if (v.length === 4) {
+      if (v === PIN) {
+        sessionStorage.setItem('loren-pin-ok', '1')
+        onUnlock()
+      } else {
+        setError(true)
+        setTimeout(() => { setValue(''); setError(false) }, 800)
+      }
+    }
+  }
+
+  const handleChange = (e) => tryValue(e.target.value.replace(/\D/g, '').slice(0, 4))
+
+  return html`
+    <div style=${{
+      position: 'fixed', inset: 0, background: 'var(--black)',
+      display: 'flex', flexDirection: 'column', alignItems: 'center',
+      justifyContent: 'center', gap: 36, direction: 'rtl',
+      padding: '0 24px',
+    }}>
+      <div style=${{ textAlign: 'center' }}>
+        <div style=${{ fontSize: 28, fontWeight: 800, color: 'var(--white)', marginBottom: 10, letterSpacing: -0.5 }}>לורן</div>
+        <div style=${{ fontSize: 15, color: 'rgba(255,255,255,0.4)' }}>הכנס קוד כניסה</div>
+      </div>
+
+      <div style=${{ display: 'flex', gap: 18, direction: 'ltr' }}>
+        ${[0,1,2,3].map(i => html`
+          <div key=${i} style=${{
+            width: 18, height: 18, borderRadius: '50%',
+            background: value.length > i
+              ? (error ? '#f87171' : 'var(--white)')
+              : 'rgba(255,255,255,0.2)',
+            transition: 'background 0.15s',
+          }} />
+        `)}
+      </div>
+
+      <input
+        type="password"
+        inputMode="numeric"
+        pattern="[0-9]*"
+        maxLength="4"
+        autoFocus
+        value=${value}
+        onInput=${handleChange}
+        style=${{ position: 'absolute', opacity: 0, width: 1, height: 1 }}
+      />
+
+      <div style=${{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, width: '100%', maxWidth: 280 }}>
+        ${[1,2,3,4,5,6,7,8,9,'',0,'⌫'].map(k => html`
+          <button
+            key=${k}
+            onClick=${() => {
+              if (k === '⌫') { setValue(v => v.slice(0, -1)); setError(false) }
+              else if (k !== '' && value.length < 4) tryValue(value + k)
+            }}
+            style=${{
+              height: 72, borderRadius: 18, border: 'none',
+              background: k === '' ? 'transparent' : 'rgba(255,255,255,0.08)',
+              color: 'var(--white)', fontSize: k === '⌫' ? 22 : 26,
+              fontWeight: 500, cursor: k === '' ? 'default' : 'pointer',
+              fontFamily: 'var(--font)', transition: 'background 0.12s',
+              WebkitTapHighlightColor: 'transparent',
+            }}
+          >${k}</button>
+        `)}
+      </div>
+
+      ${error && html`<div style=${{ fontSize: 14, color: '#f87171' }}>קוד שגוי, נסה שוב</div>`}
+    </div>
+  `
+}
+
+// ── App ────────────────────────────────────────────────────────────
+function App() {
+  const [unlocked, setUnlocked] = useState(() => sessionStorage.getItem('loren-pin-ok') === '1')
+  if (!unlocked) return html`<${PinScreen} onUnlock=${() => setUnlocked(true)} />`
+
+  const [activeTab, setActiveTab] = useState('dashboard')
+  const [selectedContractId, setSelectedContractId] = useState(null)
+  const [data, setData] = useState(DEFAULT_DATA)
+  const [loading, setLoading] = useState(true)
+
+  const reload = async () => {
+    const [cl, co, pa] = await Promise.all([
+      sb.from('clients').select('*').order('name', { ascending: true }),
+      sb.from('contracts').select('*').order('created_at', { ascending: false }),
+      sb.from('payments').select('*'),
+    ])
+    setData({ clients: cl.data || [], contracts: co.data || [], payments: pa.data || [] })
+    setLoading(false)
+  }
+
+  useEffect(() => { reload() }, [])
+
+  const changeTab = (tab) => {
+    if (tab !== 'contracts') setSelectedContractId(null)
+    setActiveTab(tab)
+  }
+
+  const openContract = (id) => {
+    setSelectedContractId(id)
+    setActiveTab('contracts')
+  }
+
+  const openClient = (clientId) => {
+    setActiveTab('contracts')
+  }
+
+  if (loading) return html`<div style="display:flex;align-items:center;justify-content:center;height:100vh;font-family:var(--font);font-size:16px;color:#71717a">טוען...</div>`
+
+  return html`
+    <div class="app-layout">
+      <${Sidebar} activeTab=${activeTab} setActiveTab=${changeTab} />
+      <main class="main-content">
+        ${activeTab === 'dashboard' && html`
+          <${Dashboard}
+            clients=${data.clients}
+            contracts=${data.contracts}
+            payments=${data.payments}
+            setActiveTab=${changeTab}
+          />`}
+        ${activeTab === 'clients' && html`
+          <${Clients} clients=${data.clients} contracts=${data.contracts} onReload=${reload} onOpenClient=${openClient} />`}
+        ${activeTab === 'contracts' && html`
+          <${Contracts}
+            contracts=${data.contracts}
+            clients=${data.clients}
+            payments=${data.payments}
+            selectedId=${selectedContractId}
+            onSelect=${setSelectedContractId}
+            onReload=${reload}
+          />`}
+        ${activeTab === 'payments' && html`
+          <${Payments} payments=${data.payments} contracts=${data.contracts} clients=${data.clients} onOpenContract=${openContract} />`}
+      </main>
+    </div>
+  `
+}
+
+render(html`<${App} />`, document.getElementById('root'))
+</script>
+</body>
+</html>
