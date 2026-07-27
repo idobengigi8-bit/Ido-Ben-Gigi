@@ -253,6 +253,13 @@
       .print-status { display: inline !important; font-size: 13px; font-weight: 600; color: var(--black); }
     }
     .print-status { display: none; }
+
+    /* ── Image export (used instead of window.print, which is a no-op
+       when the app runs as an iOS "Add to Home Screen" standalone app) ── */
+    body.is-exporting .sidebar, body.is-exporting .btn, body.is-exporting .back-link,
+    body.is-exporting .filter-tabs, body.is-exporting .attendance-toggle-group,
+    body.is-exporting .player-row-note { display: none !important; }
+    body.is-exporting .print-status { display: inline !important; font-size: 13px; font-weight: 600; color: var(--black); }
   </style>
 </head>
 <body>
@@ -260,9 +267,10 @@
 
 <script type="module">
 import { h, render } from 'https://esm.sh/preact@10.19.3'
-import { useState, useEffect } from 'https://esm.sh/preact@10.19.3/hooks'
+import { useState, useEffect, useRef } from 'https://esm.sh/preact@10.19.3/hooks'
 import htm from 'https://esm.sh/htm@3.1.1'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import html2canvas from 'https://esm.sh/html2canvas@1.4.1'
 const html = htm.bind(h)
 
 // ── Supabase ───────────────────────────────────────────────────────
@@ -276,6 +284,33 @@ const DEFAULT_DATA = { players: [], sessions: [], attendance: [] }
 
 const today = () => new Date().toISOString().split('T')[0]
 const fmtDate = (d) => new Date(d).toLocaleDateString('he-IL')
+
+// צילום אזור למסך כתמונה (במקום window.print, שלא פועל כשהאפליקציה רצה
+// כאייקון עצמאי במסך הבית ב-iOS)
+const captureImage = async (el) => {
+  document.body.classList.add('is-exporting')
+  await new Promise(r => setTimeout(r, 50))
+  try {
+    const canvas = await html2canvas(el, { backgroundColor: '#ffffff', scale: 2 })
+    return canvas.toDataURL('image/png')
+  } finally {
+    document.body.classList.remove('is-exporting')
+  }
+}
+
+function ImagePreviewModal({ src, onClose }) {
+  return html`
+    <div class="modal-overlay" onClick=${e => e.target === e.currentTarget && onClose()}>
+      <div class="modal" style=${{ maxWidth: 700 }}>
+        <h2 class="modal-title" style=${{ fontSize: 15 }}>לחיצה ארוכה על התמונה → שמירה / שיתוף / הדפסה</h2>
+        <img src=${src} style=${{ width: '100%', borderRadius: 8, border: '1px solid var(--gray-200)', display: 'block' }} />
+        <div class="form-actions">
+          <button class="btn btn-outline" onClick=${onClose}>סגור</button>
+        </div>
+      </div>
+    </div>
+  `
+}
 
 const STATUS_LABELS = { present: 'נוכח', late: 'באיחור', absent: 'נעדר', other: 'אחר' }
 const STATUS_BADGE   = { present: 'badge-present', late: 'badge-late', absent: 'badge-absent', other: 'badge-other' }
@@ -625,6 +660,15 @@ function SessionDetail({ session, players, attendance, onReload, onBack }) {
   roster.forEach(p => { const s = statusMap[p.id]; if (s) counts[s]++ })
   const unmarkedCount = roster.length - (counts.present + counts.late + counts.absent + counts.other)
 
+  const captureRef = useRef(null)
+  const [previewImg, setPreviewImg] = useState(null)
+  const [exporting, setExporting]   = useState(false)
+  const exportImage = async () => {
+    setExporting(true)
+    try { setPreviewImg(await captureImage(captureRef.current)) }
+    finally { setExporting(false) }
+  }
+
   return html`
     <div>
       <button class="back-link" onClick=${onBack}>→ חזרה לרשימת האימונים</button>
@@ -637,52 +681,56 @@ function SessionDetail({ session, players, attendance, onReload, onBack }) {
           <div style=${{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
             <button class="btn btn-outline" onClick=${markAllPresent}>סמן הכל כנוכחים</button>
             <button class="btn btn-primary" onClick=${saveAll}>${saved ? '✓ נשמר' : 'שמירה'}</button>
-            <button class="btn btn-outline" onClick=${() => window.print()}>ייצוא ל-PDF</button>
+            <button class="btn btn-outline" onClick=${exportImage}>${exporting ? 'מכין תמונה...' : 'ייצוא לתמונה'}</button>
           </div>
         </div>
       </div>
 
-      <div class="session-summary">
-        <div class="session-summary-item"><b>${counts.present}</b> נוכחים</div>
-        <div class="session-summary-item"><b>${counts.late}</b> באיחור</div>
-        <div class="session-summary-item"><b>${counts.absent}</b> נעדרים</div>
-        ${counts.other > 0 && html`<div class="session-summary-item"><b>${counts.other}</b> אחר</div>`}
-        ${unmarkedCount > 0 && html`<div class="session-summary-item"><b>${unmarkedCount}</b> לא סומנו</div>`}
+      <div ref=${captureRef}>
+        <div class="session-summary">
+          <div class="session-summary-item"><b>${counts.present}</b> נוכחים</div>
+          <div class="session-summary-item"><b>${counts.late}</b> באיחור</div>
+          <div class="session-summary-item"><b>${counts.absent}</b> נעדרים</div>
+          ${counts.other > 0 && html`<div class="session-summary-item"><b>${counts.other}</b> אחר</div>`}
+          ${unmarkedCount > 0 && html`<div class="session-summary-item"><b>${unmarkedCount}</b> לא סומנו</div>`}
+        </div>
+
+        <div class="card">
+          ${roster.length === 0 ? html`
+            <div class="empty-state">
+              <div class="empty-icon">👥</div>
+              <div class="empty-text">אין שחקנים פעילים ברשימה — עבור ל"שחקנים" כדי להוסיף</div>
+            </div>
+          ` : roster.map(p => html`
+            <div key=${p.id} class="player-row">
+              <div class="player-row-info">
+                <div class="player-row-name">${p.name}</div>
+                ${p.position && html`<div class="player-row-pos">${p.position}</div>`}
+              </div>
+              <div class="attendance-toggle-group">
+                <button class=${'toggle-btn present' + (statusMap[p.id] === 'present' ? ' active' : '')} onClick=${() => setStatus(p.id, 'present')}>נוכח</button>
+                <button class=${'toggle-btn late' + (statusMap[p.id] === 'late' ? ' active' : '')} onClick=${() => setStatus(p.id, 'late')}>איחור</button>
+                <button class=${'toggle-btn absent' + (statusMap[p.id] === 'absent' ? ' active' : '')} onClick=${() => setStatus(p.id, 'absent')}>נעדר</button>
+                <button class=${'toggle-btn other' + (statusMap[p.id] === 'other' ? ' active' : '')} onClick=${() => setStatus(p.id, 'other')}>אחר</button>
+              </div>
+              <span class="print-status">${STATUS_LABELS[statusMap[p.id]] || 'לא סומן'}${statusMap[p.id] === 'other' && noteMap[p.id] ? ' — ' + noteMap[p.id] : ''}</span>
+              ${statusMap[p.id] === 'other' && html`
+                <div class="player-row-note">
+                  <input
+                    class="form-control"
+                    placeholder="סיבה: חופשה / מחלה / פציעה..."
+                    value=${noteMap[p.id] || ''}
+                    onInput=${e => setNoteMap(m => ({ ...m, [p.id]: e.target.value }))}
+                    onBlur=${e => saveNote(p.id, e.target.value)}
+                  />
+                </div>
+              `}
+            </div>
+          `)}
+        </div>
       </div>
 
-      <div class="card">
-        ${roster.length === 0 ? html`
-          <div class="empty-state">
-            <div class="empty-icon">👥</div>
-            <div class="empty-text">אין שחקנים פעילים ברשימה — עבור ל"שחקנים" כדי להוסיף</div>
-          </div>
-        ` : roster.map(p => html`
-          <div key=${p.id} class="player-row">
-            <div class="player-row-info">
-              <div class="player-row-name">${p.name}</div>
-              ${p.position && html`<div class="player-row-pos">${p.position}</div>`}
-            </div>
-            <div class="attendance-toggle-group">
-              <button class=${'toggle-btn present' + (statusMap[p.id] === 'present' ? ' active' : '')} onClick=${() => setStatus(p.id, 'present')}>נוכח</button>
-              <button class=${'toggle-btn late' + (statusMap[p.id] === 'late' ? ' active' : '')} onClick=${() => setStatus(p.id, 'late')}>איחור</button>
-              <button class=${'toggle-btn absent' + (statusMap[p.id] === 'absent' ? ' active' : '')} onClick=${() => setStatus(p.id, 'absent')}>נעדר</button>
-              <button class=${'toggle-btn other' + (statusMap[p.id] === 'other' ? ' active' : '')} onClick=${() => setStatus(p.id, 'other')}>אחר</button>
-            </div>
-            <span class="print-status">${STATUS_LABELS[statusMap[p.id]] || 'לא סומן'}${statusMap[p.id] === 'other' && noteMap[p.id] ? ' — ' + noteMap[p.id] : ''}</span>
-            ${statusMap[p.id] === 'other' && html`
-              <div class="player-row-note">
-                <input
-                  class="form-control"
-                  placeholder="סיבה: חופשה / מחלה / פציעה..."
-                  value=${noteMap[p.id] || ''}
-                  onInput=${e => setNoteMap(m => ({ ...m, [p.id]: e.target.value }))}
-                  onBlur=${e => saveNote(p.id, e.target.value)}
-                />
-              </div>
-            `}
-          </div>
-        `)}
-      </div>
+      ${previewImg && html`<${ImagePreviewModal} src=${previewImg} onClose=${() => setPreviewImg(null)} />`}
     </div>
   `
 }
@@ -803,6 +851,15 @@ function Sessions({ sessions, players, attendance, selectedId, onSelect, onReloa
 
 // ── Report ─────────────────────────────────────────────────────────
 function Report({ players, sessions, attendance }) {
+  const captureRef = useRef(null)
+  const [previewImg, setPreviewImg] = useState(null)
+  const [exporting, setExporting]   = useState(false)
+  const exportImage = async () => {
+    setExporting(true)
+    try { setPreviewImg(await captureImage(captureRef.current)) }
+    finally { setExporting(false) }
+  }
+
   const rows = players
     .map(p => {
       const records = attendanceForPlayer(attendance, p.id)
@@ -867,79 +924,83 @@ function Report({ players, sessions, attendance }) {
           </div>
           ${rows.length > 0 && html`
             <div style=${{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-              <button class="btn btn-primary" onClick=${() => window.print()}>ייצוא ל-PDF</button>
+              <button class="btn btn-primary" onClick=${exportImage}>${exporting ? 'מכין תמונה...' : 'ייצוא לתמונה'}</button>
               <button class="btn btn-outline" onClick=${exportCsv}>ייצוא CSV</button>
             </div>
           `}
         </div>
       </div>
 
-      <div class="card">
-        ${sessions.length === 0 ? html`
-          <div class="empty-state">
-            <div class="empty-icon">▤</div>
-            <div class="empty-text">אין עדיין נתוני נוכחות — התחל בהוספת אימון ושחקנים</div>
-          </div>
-        ` : html`
-          <div class="table-wrapper">
-            <table>
-              <thead>
-                <tr><th>שם</th><th>תפקיד</th><th>אימונים</th><th>נוכח</th><th>איחור</th><th>נעדר</th><th>אחר</th><th>אחוז נוכחות</th></tr>
-              </thead>
-              <tbody>
-                ${rows.map(r => html`
-                  <tr key=${r.player.id}>
-                    <td class="td-bold">${r.player.name}</td>
-                    <td>${r.player.position || '—'}</td>
-                    <td>${r.marked}</td>
-                    <td>${r.present}</td>
-                    <td>${r.late}</td>
-                    <td>${r.absent}</td>
-                    <td>${r.other}</td>
-                    <td><span class=${pctClass(r.pct)}>${r.pct === null ? 'אין נתונים' : r.pct + '%'}</span></td>
+      <div ref=${captureRef}>
+        <div class="card">
+          ${sessions.length === 0 ? html`
+            <div class="empty-state">
+              <div class="empty-icon">▤</div>
+              <div class="empty-text">אין עדיין נתוני נוכחות — התחל בהוספת אימון ושחקנים</div>
+            </div>
+          ` : html`
+            <div class="table-wrapper">
+              <table>
+                <thead>
+                  <tr><th>שם</th><th>תפקיד</th><th>אימונים</th><th>נוכח</th><th>איחור</th><th>נעדר</th><th>אחר</th><th>אחוז נוכחות</th></tr>
+                </thead>
+                <tbody>
+                  ${rows.map(r => html`
+                    <tr key=${r.player.id}>
+                      <td class="td-bold">${r.player.name}</td>
+                      <td>${r.player.position || '—'}</td>
+                      <td>${r.marked}</td>
+                      <td>${r.present}</td>
+                      <td>${r.late}</td>
+                      <td>${r.absent}</td>
+                      <td>${r.other}</td>
+                      <td><span class=${pctClass(r.pct)}>${r.pct === null ? 'אין נתונים' : r.pct + '%'}</span></td>
+                    </tr>
+                  `)}
+                </tbody>
+              </table>
+            </div>
+          `}
+        </div>
+
+        ${sortedSessions.length > 0 && html`
+          <div class="card" style=${{ marginTop: 24 }}>
+            <div class="section-header">
+              <h2 class="section-title">נוכחות מפורטת לפי אימון</h2>
+              <button class="btn btn-outline" style=${{ fontSize: 13, padding: '6px 13px' }} onClick=${exportMatrixCsv}>ייצוא לדף אחד (CSV)</button>
+            </div>
+            <div class="table-wrapper">
+              <table>
+                <thead>
+                  <tr>
+                    <th>שחקן</th>
+                    ${sortedSessions.map(s => html`<th key=${s.id}>${fmtDate(s.date)}</th>`)}
                   </tr>
-                `)}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  ${sortedPlayers.map(p => html`
+                    <tr key=${p.id}>
+                      <td class="td-bold">${p.name}</td>
+                      ${sortedSessions.map(s => {
+                        const rec = cellRecord(p.id, s.id)
+                        return html`
+                          <td key=${s.id}>
+                            ${rec
+                              ? html`<span class=${'badge ' + CELL_CLASS[rec.status]} title=${rec.note || ''}>${CELL_LABEL[rec.status]}</span>`
+                              : html`<span style=${{ color: 'var(--gray-300)' }}>—</span>`}
+                          </td>
+                        `
+                      })}
+                    </tr>
+                  `)}
+                </tbody>
+              </table>
+            </div>
           </div>
         `}
       </div>
 
-      ${sortedSessions.length > 0 && html`
-        <div class="card" style=${{ marginTop: 24 }}>
-          <div class="section-header">
-            <h2 class="section-title">נוכחות מפורטת לפי אימון</h2>
-            <button class="btn btn-outline" style=${{ fontSize: 13, padding: '6px 13px' }} onClick=${exportMatrixCsv}>ייצוא לדף אחד (CSV)</button>
-          </div>
-          <div class="table-wrapper">
-            <table>
-              <thead>
-                <tr>
-                  <th>שחקן</th>
-                  ${sortedSessions.map(s => html`<th key=${s.id}>${fmtDate(s.date)}</th>`)}
-                </tr>
-              </thead>
-              <tbody>
-                ${sortedPlayers.map(p => html`
-                  <tr key=${p.id}>
-                    <td class="td-bold">${p.name}</td>
-                    ${sortedSessions.map(s => {
-                      const rec = cellRecord(p.id, s.id)
-                      return html`
-                        <td key=${s.id}>
-                          ${rec
-                            ? html`<span class=${'badge ' + CELL_CLASS[rec.status]} title=${rec.note || ''}>${CELL_LABEL[rec.status]}</span>`
-                            : html`<span style=${{ color: 'var(--gray-300)' }}>—</span>`}
-                        </td>
-                      `
-                    })}
-                  </tr>
-                `)}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      `}
+      ${previewImg && html`<${ImagePreviewModal} src=${previewImg} onClose=${() => setPreviewImg(null)} />`}
     </div>
   `
 }
