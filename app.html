@@ -534,6 +534,8 @@ function ImagePreviewModal({ src, onClose }) {
 const STATUS_LABELS = { present: 'נוכח', late: 'באיחור', absent: 'נעדר', vacation: 'חופשה', sick: 'מחלה/פציעה', other: 'אחר' }
 const FOOT_LABELS = { right: 'ימין', left: 'שמאל', both: 'שתי הרגליים' }
 const UNAVAILABLE_LABELS = { injury: 'פציעה', sick: 'מחלה', vacation: 'חופשה', other: 'אחר' }
+// ממפה סטטוס זמינות מתמשך (בפרופיל השחקן) לסטטוס נוכחות באימון ספציפי
+const UNAVAIL_TO_STATUS = { injury: 'sick', sick: 'sick', vacation: 'vacation', other: 'other' }
 const STATUS_BADGE   = { present: 'badge-present', late: 'badge-late', absent: 'badge-absent', vacation: 'badge-vacation', sick: 'badge-sick', other: 'badge-other' }
 
 // סטטוסים "מוצדקים" — לא נספרים לא לטובה ולא לרעה באחוז הנוכחות
@@ -927,8 +929,25 @@ function SessionDetail({ session, players, attendance, onReload, onBack }) {
   useEffect(() => {
     const sMap = {}, nMap = {}
     attendanceForSession(attendance, session.id).forEach(r => { sMap[r.player_id] = r.status; nMap[r.player_id] = r.note || '' })
+
+    // שחקנים שמסומנים כרגע כ"לא זמינים" (פציעה/מחלה/חופשה) ועדיין לא סומנו
+    // באימון הזה — מסמנים אותם אוטומטית לפי הסטטוס המתמשך שלהם, ושומרים
+    const autoFill = []
+    roster.forEach(p => {
+      if (p.unavailable_reason && !sMap[p.id]) {
+        const status = UNAVAIL_TO_STATUS[p.unavailable_reason] || 'other'
+        sMap[p.id] = status
+        nMap[p.id] = p.unavailable_note || ''
+        autoFill.push({ session_id: session.id, player_id: p.id, status, note: p.unavailable_note || null })
+      }
+    })
+
     setStatusMap(sMap)
     setNoteMap(nMap)
+
+    if (autoFill.length > 0) {
+      Promise.all(autoFill.map(a => writeOrQueue('attendance', a, 'session_id,player_id'))).then(() => onReload())
+    }
   }, [session.id])
 
   const setStatus = async (playerId, status) => {
