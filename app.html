@@ -166,6 +166,19 @@
     .toggle-btn.vacation.active { background: #6D28D9; border-color: #6D28D9; color: var(--white); }
     .toggle-btn.sick.active { background: #0E7490; border-color: #0E7490; color: var(--white); }
 
+    /* Player avatars */
+    .avatar-sm {
+      width: 32px; height: 32px; border-radius: 50%; object-fit: cover; flex-shrink: 0;
+      background: var(--black); color: var(--accent); display: flex; align-items: center; justify-content: center;
+      font-size: 12px; font-weight: 700; border: 1.5px solid var(--gray-200);
+    }
+    .avatar-lg {
+      width: 96px; height: 96px; border-radius: 50%; object-fit: cover; margin: 0 auto 14px;
+      background: var(--black); color: var(--accent); display: flex; align-items: center; justify-content: center;
+      font-size: 30px; font-weight: 700; border: 3px solid var(--accent);
+    }
+    .player-name-cell { display: flex; align-items: center; gap: 10px; }
+
     .player-row { display: flex; align-items: center; justify-content: space-between; padding: 14px 0; border-bottom: 1px solid var(--gray-100); gap: 14px; flex-wrap: wrap; }
     .player-row-note { width: 100%; margin-top: 4px; }
     .player-row-note .form-control { padding: 8px 12px; font-size: 13px; }
@@ -362,6 +375,36 @@ const captureImage = async (el) => {
   } finally {
     document.body.classList.remove('is-exporting')
   }
+}
+
+// מקטינים תמונה לפני העלאה (תמונות טלפון יכולות להיות כמה MB — מיותר לתמונת פרופיל)
+const resizeImageToBlob = (file, maxSize, quality) => new Promise((resolve, reject) => {
+  const img = new Image()
+  const url = URL.createObjectURL(file)
+  img.onload = () => {
+    const scale = Math.min(1, maxSize / img.width, maxSize / img.height)
+    const width = Math.round(img.width * scale)
+    const height = Math.round(img.height * scale)
+    const canvas = document.createElement('canvas')
+    canvas.width = width
+    canvas.height = height
+    canvas.getContext('2d').drawImage(img, 0, 0, width, height)
+    canvas.toBlob(blob => { URL.revokeObjectURL(url); blob ? resolve(blob) : reject(new Error('resize failed')) }, 'image/jpeg', quality)
+  }
+  img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('image load failed')) }
+  img.src = url
+})
+
+const uploadPlayerPhoto = async (playerId, file) => {
+  const blob = await resizeImageToBlob(file, 400, 0.82)
+  const path = `${playerId}.jpg`
+  const { error: upErr } = await sb.storage.from('player-photos').upload(path, blob, { upsert: true, contentType: 'image/jpeg' })
+  if (upErr) { alert('העלאת התמונה נכשלה — בדוק חיבור לאינטרנט ונסה שוב'); return false }
+  const { data } = sb.storage.from('player-photos').getPublicUrl(path)
+  const photo_url = data.publicUrl + '?t=' + Date.now()
+  const { error: dbErr } = await sb.from('players').update({ photo_url }).eq('id', playerId)
+  if (dbErr) { alert('התמונה הועלתה אך השמירה נכשלה — נסה שוב'); return false }
+  return true
 }
 
 function ImagePreviewModal({ src, onClose }) {
@@ -653,7 +696,14 @@ function Players({ players, attendance, onReload, onOpenPlayer }) {
                   const pct = pctOf(attendanceForPlayer(attendance, p.id))
                   return html`
                     <tr key=${p.id} class="clickable" onClick=${() => onOpenPlayer(p.id)}>
-                      <td class="td-bold">${p.name}</td>
+                      <td class="td-bold">
+                        <div class="player-name-cell">
+                          ${p.photo_url
+                            ? html`<img src=${p.photo_url} class="avatar-sm" />`
+                            : html`<div class="avatar-sm">${initials(p.name)}</div>`}
+                          ${p.name}
+                        </div>
+                      </td>
                       <td>${p.position || '—'}</td>
                       <td>${p.phone || '—'}</td>
                       <td><span class=${pctClass(pct)}>${pct === null ? 'אין נתונים' : pct + '%'}</span></td>
@@ -974,7 +1024,7 @@ function Sessions({ sessions, players, attendance, selectedId, onSelect, onReloa
 }
 
 // ── Player Profile ─────────────────────────────────────────────────
-function PlayerProfile({ player, sessions, attendance, onBack }) {
+function PlayerProfile({ player, sessions, attendance, onReload, onBack }) {
   const records = attendanceForPlayer(attendance, player.id)
   const pct      = pctOf(records)
   const present  = records.filter(r => r.status === 'present').length
@@ -988,15 +1038,36 @@ function PlayerProfile({ player, sessions, attendance, onBack }) {
     .filter(r => r.rec)
     .sort((a, b) => new Date(b.session.date) - new Date(a.session.date))
 
+  const fileInputRef = useRef(null)
+  const [uploading, setUploading] = useState(false)
+  const handlePhotoChange = async (e) => {
+    const file = e.target.files[0]
+    e.target.value = ''
+    if (!file) return
+    setUploading(true)
+    await uploadPlayerPhoto(player.id, file)
+    setUploading(false)
+    onReload()
+  }
+
   return html`
     <div>
       <button class="back-link" onClick=${onBack}>→ חזרה</button>
-      <div class="page-header">
+      <div class="page-header" style=${{ textAlign: 'center' }}>
+        ${player.photo_url
+          ? html`<img src=${player.photo_url} class="avatar-lg" />`
+          : html`<div class="avatar-lg">${initials(player.name)}</div>`}
         <h1 class="page-title">${player.name}</h1>
         <p class="page-subtitle">
           ${player.position || 'שחקן'}${player.phone ? ' · ' + player.phone : ''}
           · <span class=${'badge ' + (player.active ? 'badge-active' : 'badge-inactive')}>${player.active ? 'פעיל' : 'לא פעיל'}</span>
         </p>
+        <div style=${{ marginTop: 14 }}>
+          <button class="btn btn-outline" onClick=${() => fileInputRef.current.click()} disabled=${uploading}>
+            ${uploading ? 'מעלה תמונה...' : (player.photo_url ? '📷 החלף תמונה' : '📷 הוסף תמונה')}
+          </button>
+          <input ref=${fileInputRef} type="file" accept="image/*" style=${{ display: 'none' }} onChange=${handlePhotoChange} />
+        </div>
       </div>
 
       <div class="stats-grid">
@@ -1653,6 +1724,7 @@ function App() {
             player=${data.players.find(p => p.id === selectedPlayerId)}
             sessions=${data.sessions}
             attendance=${data.attendance}
+            onReload=${reload}
             onBack=${() => setSelectedPlayerId(null)}
           />
         ` : html`

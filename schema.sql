@@ -8,6 +8,7 @@ create table if not exists players (
   position text,
   phone text,
   active boolean not null default true,
+  photo_url text,
   created_at timestamptz not null default now()
 );
 
@@ -57,3 +58,12 @@ create policy "allow all sessions" on sessions for all using (true) with check (
 create policy "allow all attendance" on attendance for all using (true) with check (true);
 create policy "allow all matches" on matches for all using (true) with check (true);
 create policy "allow all lineup" on lineup for all using (true) with check (true);
+
+-- אחסון תמונות פרופיל לשחקנים
+insert into storage.buckets (id, name, public)
+values ('player-photos', 'player-photos', true)
+on conflict (id) do nothing;
+
+create policy "public read player photos" on storage.objects for select using (bucket_id = 'player-photos');
+create policy "anon upload player photos" on storage.objects for insert with check (bucket_id = 'player-photos');
+create policy "anon update player photos" on storage.objects for update using (bucket_id = 'player-photos');
