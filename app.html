@@ -716,36 +716,43 @@ function SessionDetail({ session, players, attendance, onReload, onBack }) {
   const [statusMap, setStatusMap] = useState({})
   const [noteMap, setNoteMap]     = useState({})
   const [saved, setSaved]         = useState(false)
+  // מאתחלים את הסימונים המקומיים מהשרת רק כשעוברים לאימון אחר (לא בכל רענון
+  // נתונים ברקע) — אחרת רענון שמגיע כמה שניות אחרי לחיצה "קופץ" ומוחק סימון
+  // שכבר בוצע מקומית לפני שהשרת הספיק להתעדכן.
   useEffect(() => {
     const sMap = {}, nMap = {}
-    records.forEach(r => { sMap[r.player_id] = r.status; nMap[r.player_id] = r.note || '' })
+    attendanceForSession(attendance, session.id).forEach(r => { sMap[r.player_id] = r.status; nMap[r.player_id] = r.note || '' })
     setStatusMap(sMap)
     setNoteMap(nMap)
-  }, [attendance, session.id])
+  }, [session.id])
 
   const setStatus = async (playerId, status) => {
     setStatusMap(m => ({ ...m, [playerId]: status }))
-    await sb.from('attendance').upsert(
+    const { error } = await sb.from('attendance').upsert(
       { session_id: session.id, player_id: playerId, status },
       { onConflict: 'session_id,player_id' }
     )
+    if (error) alert('הסימון לא נשמר (בעיית חיבור) — נסה שוב')
     onReload()
   }
 
   const saveNote = async (playerId, note) => {
-    await sb.from('attendance').upsert(
+    const { error } = await sb.from('attendance').upsert(
       { session_id: session.id, player_id: playerId, status: statusMap[playerId] || 'other', note },
       { onConflict: 'session_id,player_id' }
     )
+    if (error) alert('ההערה לא נשמרה (בעיית חיבור) — נסה שוב')
     onReload()
   }
 
   const markAllPresent = async () => {
     const unmarked = roster.filter(p => !statusMap[p.id])
     if (unmarked.length === 0) return
-    await Promise.all(unmarked.map(p =>
+    setStatusMap(m => { const n = { ...m }; unmarked.forEach(p => { n[p.id] = 'present' }); return n })
+    const results = await Promise.all(unmarked.map(p =>
       sb.from('attendance').upsert({ session_id: session.id, player_id: p.id, status: 'present' }, { onConflict: 'session_id,player_id' })
     ))
+    if (results.some(r => r.error)) alert('חלק מהסימונים לא נשמרו (בעיית חיבור) — בדוק ונסה שוב')
     onReload()
   }
 
@@ -754,15 +761,19 @@ function SessionDetail({ session, players, attendance, onReload, onBack }) {
   const saveAll = async () => {
     if (document.activeElement) document.activeElement.blur()
     const marked = roster.filter(p => statusMap[p.id])
-    await Promise.all(marked.map(p =>
+    const results = await Promise.all(marked.map(p =>
       sb.from('attendance').upsert(
         { session_id: session.id, player_id: p.id, status: statusMap[p.id], note: noteMap[p.id] || null },
         { onConflict: 'session_id,player_id' }
       )
     ))
     onReload()
-    setSaved(true)
-    setTimeout(() => setSaved(false), 2000)
+    if (results.some(r => r.error)) {
+      alert('חלק מהנתונים לא נשמרו (בעיית חיבור) — בדוק חיבור לאינטרנט ונסה שוב')
+    } else {
+      setSaved(true)
+      setTimeout(() => setSaved(false), 2000)
+    }
   }
 
   const counts = { present: 0, late: 0, absent: 0, vacation: 0, sick: 0, other: 0 }
