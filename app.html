@@ -762,7 +762,7 @@ function Players({ players, attendance, onReload, onOpenPlayer }) {
           <div class="table-wrapper">
             <table>
               <thead>
-                <tr><th>שם</th><th>תפקיד</th><th>טלפון</th><th>נוכחות</th><th>סטטוס</th><th></th></tr>
+                <tr><th>שם</th><th>תפקיד</th><th>רגל</th><th>טלפון</th><th>נוכחות</th><th>סטטוס</th><th></th></tr>
               </thead>
               <tbody>
                 ${filtered.map(p => {
@@ -778,6 +778,7 @@ function Players({ players, attendance, onReload, onOpenPlayer }) {
                         </div>
                       </td>
                       <td>${p.position || '—'}</td>
+                      <td>${p.foot ? FOOT_LABELS[p.foot] : '—'}</td>
                       <td>${p.phone || '—'}</td>
                       <td><span class=${pctClass(pct)}>${pct === null ? 'אין נתונים' : pct + '%'}</span></td>
                       <td><span class=${'badge ' + (p.active ? 'badge-active' : 'badge-inactive')}>${p.active ? 'פעיל' : 'לא פעיל'}</span></td>
