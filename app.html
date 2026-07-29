@@ -407,6 +407,13 @@ const uploadPlayerPhoto = async (playerId, file) => {
   return true
 }
 
+const deletePlayerPhoto = async (playerId) => {
+  await sb.storage.from('player-photos').remove([`${playerId}.jpg`])
+  const { error } = await sb.from('players').update({ photo_url: null }).eq('id', playerId)
+  if (error) { alert('הסרת התמונה נכשלה — נסה שוב'); return false }
+  return true
+}
+
 function ImagePreviewModal({ src, onClose }) {
   return html`
     <div class="modal-overlay" onClick=${e => e.target === e.currentTarget && onClose()}>
@@ -1050,6 +1057,14 @@ function PlayerProfile({ player, sessions, attendance, onReload, onBack }) {
     onReload()
   }
 
+  const handleRemovePhoto = async () => {
+    if (!window.confirm('להסיר את התמונה?')) return
+    setUploading(true)
+    await deletePlayerPhoto(player.id)
+    setUploading(false)
+    onReload()
+  }
+
   return html`
     <div>
       <button class="back-link" onClick=${onBack}>→ חזרה</button>
@@ -1062,10 +1077,13 @@ function PlayerProfile({ player, sessions, attendance, onReload, onBack }) {
           ${player.position || 'שחקן'}${player.phone ? ' · ' + player.phone : ''}
           · <span class=${'badge ' + (player.active ? 'badge-active' : 'badge-inactive')}>${player.active ? 'פעיל' : 'לא פעיל'}</span>
         </p>
-        <div style=${{ marginTop: 14 }}>
+        <div style=${{ marginTop: 14, display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
           <button class="btn btn-outline" onClick=${() => fileInputRef.current.click()} disabled=${uploading}>
-            ${uploading ? 'מעלה תמונה...' : (player.photo_url ? '📷 החלף תמונה' : '📷 הוסף תמונה')}
+            ${uploading ? 'מעדכן...' : (player.photo_url ? '📷 החלף תמונה' : '📷 הוסף תמונה')}
           </button>
+          ${player.photo_url && html`
+            <button class="btn-danger" onClick=${handleRemovePhoto} disabled=${uploading}>🗑 הסר תמונה</button>
+          `}
           <input ref=${fileInputRef} type="file" accept="image/*" style=${{ display: 'none' }} onChange=${handlePhotoChange} />
         </div>
       </div>
