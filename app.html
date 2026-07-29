@@ -685,6 +685,7 @@ const EMPTY_PLAYER = { name: '', position: '', phone: '', foot: '', active: true
 
 function Players({ players, attendance, onReload, onOpenPlayer }) {
   const [filter, setFilter]       = useState('active')
+  const [search, setSearch]       = useState('')
   const [showModal, setShowModal] = useState(false)
   const [editId, setEditId]       = useState(null)
   const [form, setForm]           = useState(EMPTY_PLAYER)
@@ -697,6 +698,7 @@ function Players({ players, attendance, onReload, onOpenPlayer }) {
 
   const filtered = players
     .filter(p => filter === 'all' || (filter === 'active' ? p.active : !p.active))
+    .filter(p => p.name.toLowerCase().includes(search.trim().toLowerCase()))
     .sort((a, b) => a.name.localeCompare(b.name, 'he'))
 
   const set = (field) => (e) => setForm(f => ({ ...f, [field]: field === 'active' ? e.target.checked : e.target.value }))
@@ -742,6 +744,10 @@ function Players({ players, attendance, onReload, onOpenPlayer }) {
         </div>
       </div>
 
+      <div class="form-group" style=${{ maxWidth: 320 }}>
+        <input class="form-control" placeholder="🔍 חיפוש שחקן לפי שם..." value=${search} onInput=${e => setSearch(e.target.value)} />
+      </div>
+
       <div class="filter-tabs">
         ${filterTabs.map(t => html`
           <button key=${t.id} class=${'filter-tab' + (filter === t.id ? ' active' : '')} onClick=${() => setFilter(t.id)}>
@@ -755,7 +761,7 @@ function Players({ players, attendance, onReload, onOpenPlayer }) {
           <div class="empty-state">
             <div class="empty-icon">👥</div>
             <div class="empty-text">
-              ${filter === 'all' ? 'אין שחקנים עדיין — לחץ "+ הוסף שחקן"' : 'אין שחקנים בקטגוריה זו'}
+              ${search ? 'אין שחקן שתואם לחיפוש' : (filter === 'all' ? 'אין שחקנים עדיין — לחץ "+ הוסף שחקן"' : 'אין שחקנים בקטגוריה זו')}
             </div>
           </div>
         ` : html`
@@ -1223,13 +1229,17 @@ function Report({ players, sessions, attendance, onOpenPlayer }) {
   const captureRef = useRef(null)
   const [previewImg, setPreviewImg] = useState(null)
   const [exporting, setExporting]   = useState(false)
+  const [search, setSearch]         = useState('')
   const exportImage = async () => {
     setExporting(true)
     try { setPreviewImg(await captureImage(captureRef.current)) }
     finally { setExporting(false) }
   }
 
+  const matchesSearch = (p) => p.name.toLowerCase().includes(search.trim().toLowerCase())
+
   const rows = players
+    .filter(matchesSearch)
     .map(p => {
       const records = attendanceForPlayer(attendance, p.id)
       const present  = records.filter(r => r.status === 'present').length
@@ -1259,7 +1269,7 @@ function Report({ players, sessions, attendance, onOpenPlayer }) {
 
   // מטריצה: כל שחקן מול כל אימון, בדף/קובץ אחד מרוכז
   const sortedSessions = [...sessions].sort((a, b) => new Date(a.date) - new Date(b.date))
-  const sortedPlayers  = [...players].sort((a, b) => a.name.localeCompare(b.name, 'he'))
+  const sortedPlayers  = players.filter(matchesSearch).sort((a, b) => a.name.localeCompare(b.name, 'he'))
   const cellRecord = (playerId, sessionId) => attendance.find(a => a.player_id === playerId && a.session_id === sessionId)
 
   const exportMatrixCsv = () => {
@@ -1299,12 +1309,21 @@ function Report({ players, sessions, attendance, onOpenPlayer }) {
         </div>
       </div>
 
+      <div class="form-group" style=${{ maxWidth: 320 }}>
+        <input class="form-control" placeholder="🔍 חיפוש שחקן לפי שם..." value=${search} onInput=${e => setSearch(e.target.value)} />
+      </div>
+
       <div ref=${captureRef}>
         <div class="card">
           ${sessions.length === 0 ? html`
             <div class="empty-state">
               <div class="empty-icon">▤</div>
               <div class="empty-text">אין עדיין נתוני נוכחות — התחל בהוספת אימון ושחקנים</div>
+            </div>
+          ` : rows.length === 0 ? html`
+            <div class="empty-state">
+              <div class="empty-icon">🔍</div>
+              <div class="empty-text">אין שחקן שתואם לחיפוש</div>
             </div>
           ` : html`
             <div class="table-wrapper">
