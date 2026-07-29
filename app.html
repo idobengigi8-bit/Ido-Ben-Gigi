@@ -568,7 +568,7 @@ function Dashboard({ players, sessions, attendance, onOpenSession, setActiveTab 
 // ── Players ────────────────────────────────────────────────────────
 const EMPTY_PLAYER = { name: '', position: '', phone: '', active: true }
 
-function Players({ players, attendance, onReload }) {
+function Players({ players, attendance, onReload, onOpenPlayer }) {
   const [filter, setFilter]       = useState('active')
   const [showModal, setShowModal] = useState(false)
   const [editId, setEditId]       = useState(null)
@@ -587,7 +587,7 @@ function Players({ players, attendance, onReload }) {
   const set = (field) => (e) => setForm(f => ({ ...f, [field]: field === 'active' ? e.target.checked : e.target.value }))
 
   const openAdd = () => { setForm(EMPTY_PLAYER); setEditId(null); setShowModal(true) }
-  const openEdit = (p) => { setForm({ name: p.name, position: p.position || '', phone: p.phone || '', active: p.active }); setEditId(p.id); setShowModal(true) }
+  const openEdit = (p, e) => { e.stopPropagation(); setForm({ name: p.name, position: p.position || '', phone: p.phone || '', active: p.active }); setEditId(p.id); setShowModal(true) }
 
   const handleSave = async () => {
     if (!form.name.trim()) return
@@ -600,7 +600,8 @@ function Players({ players, attendance, onReload }) {
     onReload()
   }
 
-  const handleDelete = async (id) => {
+  const handleDelete = async (id, e) => {
+    e.stopPropagation()
     if (window.confirm('למחוק את השחקן? כל היסטוריית ההגעה שלו תימחק גם היא.')) {
       await sb.from('players').delete().eq('id', id)
       onReload()
@@ -651,7 +652,7 @@ function Players({ players, attendance, onReload }) {
                 ${filtered.map(p => {
                   const pct = pctOf(attendanceForPlayer(attendance, p.id))
                   return html`
-                    <tr key=${p.id}>
+                    <tr key=${p.id} class="clickable" onClick=${() => onOpenPlayer(p.id)}>
                       <td class="td-bold">${p.name}</td>
                       <td>${p.position || '—'}</td>
                       <td>${p.phone || '—'}</td>
@@ -659,8 +660,8 @@ function Players({ players, attendance, onReload }) {
                       <td><span class=${'badge ' + (p.active ? 'badge-active' : 'badge-inactive')}>${p.active ? 'פעיל' : 'לא פעיל'}</span></td>
                       <td>
                         <div style=${{ display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
-                          <button class="btn-ghost" onClick=${() => openEdit(p)}>✏️</button>
-                          <button class="btn-danger" onClick=${() => handleDelete(p.id)}>✕</button>
+                          <button class="btn-ghost" onClick=${e => openEdit(p, e)}>✏️</button>
+                          <button class="btn-danger" onClick=${e => handleDelete(p.id, e)}>✕</button>
                         </div>
                       </td>
                     </tr>
@@ -972,8 +973,85 @@ function Sessions({ sessions, players, attendance, selectedId, onSelect, onReloa
   `
 }
 
+// ── Player Profile ─────────────────────────────────────────────────
+function PlayerProfile({ player, sessions, attendance, onBack }) {
+  const records = attendanceForPlayer(attendance, player.id)
+  const pct      = pctOf(records)
+  const present  = records.filter(r => r.status === 'present').length
+  const late     = records.filter(r => r.status === 'late').length
+  const absent   = records.filter(r => r.status === 'absent').length
+  const vacation = records.filter(r => r.status === 'vacation' || r.status === 'other').length
+  const sick     = records.filter(r => r.status === 'sick').length
+
+  const history = sessions
+    .map(s => ({ session: s, rec: records.find(r => r.session_id === s.id) }))
+    .filter(r => r.rec)
+    .sort((a, b) => new Date(b.session.date) - new Date(a.session.date))
+
+  return html`
+    <div>
+      <button class="back-link" onClick=${onBack}>→ חזרה</button>
+      <div class="page-header">
+        <h1 class="page-title">${player.name}</h1>
+        <p class="page-subtitle">
+          ${player.position || 'שחקן'}${player.phone ? ' · ' + player.phone : ''}
+          · <span class=${'badge ' + (player.active ? 'badge-active' : 'badge-inactive')}>${player.active ? 'פעיל' : 'לא פעיל'}</span>
+        </p>
+      </div>
+
+      <div class="stats-grid">
+        <div class="stat-card black">
+          <div class="stat-label">אחוז נוכחות</div>
+          <div class="stat-value">${pct === null ? '—' : pct + '%'}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">נוכח (כולל איחור)</div>
+          <div class="stat-value">${present + late}</div>
+          <div class="stat-meta">${late} מתוכם באיחור</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">נעדר / חופשה</div>
+          <div class="stat-value">${absent + vacation}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">מחלה / פציעה</div>
+          <div class="stat-value">${sick}</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="section-header"><h2 class="section-title">היסטוריית אימונים</h2></div>
+        ${history.length === 0 ? html`
+          <div class="empty-state">
+            <div class="empty-icon">📋</div>
+            <div class="empty-text">אין עדיין נתוני נוכחות לשחקן זה</div>
+          </div>
+        ` : html`
+          <div class="table-wrapper">
+            <table>
+              <thead>
+                <tr><th>תאריך</th><th>הערת אימון</th><th>סטטוס</th><th>הערה</th></tr>
+              </thead>
+              <tbody>
+                ${history.map(h => html`
+                  <tr key=${h.session.id}>
+                    <td class="td-bold">${fmtDate(h.session.date)}</td>
+                    <td><div class="td-desc">${h.session.note || '—'}</div></td>
+                    <td><span class=${'badge ' + STATUS_BADGE[h.rec.status]}>${STATUS_LABELS[h.rec.status]}</span></td>
+                    <td>${h.rec.note || '—'}</td>
+                  </tr>
+                `)}
+              </tbody>
+            </table>
+          </div>
+        `}
+      </div>
+    </div>
+  `
+}
+
 // ── Report ─────────────────────────────────────────────────────────
-function Report({ players, sessions, attendance }) {
+function Report({ players, sessions, attendance, onOpenPlayer }) {
   const captureRef = useRef(null)
   const [previewImg, setPreviewImg] = useState(null)
   const [exporting, setExporting]   = useState(false)
@@ -1068,7 +1146,7 @@ function Report({ players, sessions, attendance }) {
                 </thead>
                 <tbody>
                   ${rows.map(r => html`
-                    <tr key=${r.player.id}>
+                    <tr key=${r.player.id} class="clickable" onClick=${() => onOpenPlayer(r.player.id)}>
                       <td class="td-bold">${r.player.name}</td>
                       <td>${r.player.position || '—'}</td>
                       <td>${r.marked}</td>
@@ -1518,6 +1596,7 @@ function App() {
   const [activeTab, setActiveTab] = useState('dashboard')
   const [selectedSessionId, setSelectedSessionId] = useState(null)
   const [selectedMatchId, setSelectedMatchId] = useState(null)
+  const [selectedPlayerId, setSelectedPlayerId] = useState(null)
   const [data, setData] = useState(DEFAULT_DATA)
   const [loading, setLoading] = useState(true)
 
@@ -1550,6 +1629,7 @@ function App() {
   const changeTab = (tab) => {
     if (tab !== 'sessions') setSelectedSessionId(null)
     if (tab !== 'matches') setSelectedMatchId(null)
+    setSelectedPlayerId(null)
     setActiveTab(tab)
   }
 
@@ -1564,38 +1644,47 @@ function App() {
     <div class="app-layout">
       <${Sidebar} activeTab=${activeTab} setActiveTab=${changeTab} />
       <main class="main-content">
-        ${activeTab === 'dashboard' && html`
-          <${Dashboard}
-            players=${data.players}
+        ${selectedPlayerId && data.players.find(p => p.id === selectedPlayerId) ? html`
+          <${PlayerProfile}
+            player=${data.players.find(p => p.id === selectedPlayerId)}
             sessions=${data.sessions}
             attendance=${data.attendance}
-            onOpenSession=${openSession}
-            setActiveTab=${changeTab}
-          />`}
-        ${activeTab === 'players' && html`
-          <${Players} players=${data.players} attendance=${data.attendance} onReload=${reload} />`}
-        ${activeTab === 'sessions' && html`
-          <${Sessions}
-            sessions=${data.sessions}
-            players=${data.players}
-            attendance=${data.attendance}
-            selectedId=${selectedSessionId}
-            onSelect=${setSelectedSessionId}
-            onReload=${reload}
-            onReloadFast=${debouncedReload}
-          />`}
-        ${activeTab === 'report' && html`
-          <${Report} players=${data.players} sessions=${data.sessions} attendance=${data.attendance} />`}
-        ${activeTab === 'matches' && html`
-          <${Matches}
-            matches=${data.matches}
-            players=${data.players}
-            lineup=${data.lineup}
-            selectedId=${selectedMatchId}
-            onSelect=${setSelectedMatchId}
-            onReload=${reload}
-            onReloadFast=${debouncedReload}
-          />`}
+            onBack=${() => setSelectedPlayerId(null)}
+          />
+        ` : html`
+          ${activeTab === 'dashboard' && html`
+            <${Dashboard}
+              players=${data.players}
+              sessions=${data.sessions}
+              attendance=${data.attendance}
+              onOpenSession=${openSession}
+              setActiveTab=${changeTab}
+            />`}
+          ${activeTab === 'players' && html`
+            <${Players} players=${data.players} attendance=${data.attendance} onReload=${reload} onOpenPlayer=${setSelectedPlayerId} />`}
+          ${activeTab === 'sessions' && html`
+            <${Sessions}
+              sessions=${data.sessions}
+              players=${data.players}
+              attendance=${data.attendance}
+              selectedId=${selectedSessionId}
+              onSelect=${setSelectedSessionId}
+              onReload=${reload}
+              onReloadFast=${debouncedReload}
+            />`}
+          ${activeTab === 'report' && html`
+            <${Report} players=${data.players} sessions=${data.sessions} attendance=${data.attendance} onOpenPlayer=${setSelectedPlayerId} />`}
+          ${activeTab === 'matches' && html`
+            <${Matches}
+              matches=${data.matches}
+              players=${data.players}
+              lineup=${data.lineup}
+              selectedId=${selectedMatchId}
+              onSelect=${setSelectedMatchId}
+              onReload=${reload}
+              onReloadFast=${debouncedReload}
+            />`}
+        `}
       </main>
     </div>
   `
