@@ -199,6 +199,11 @@
     .back-link { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--gray-500); cursor: pointer; background: none; border: none; font-family: var(--font); margin-bottom: 14px; padding: 4px 0; }
     .back-link:hover { color: var(--accent-dark); }
 
+    .offline-banner {
+      background: var(--amber-light); color: var(--amber); font-size: 13px; font-weight: 600;
+      text-align: center; padding: 9px 16px;
+    }
+
     /* Pitch / lineup builder */
     .pitch-wrap { max-width: 420px; margin: 0 auto; }
     .pitch {
@@ -412,6 +417,65 @@ const deletePlayerPhoto = async (playerId) => {
   const { error } = await sb.from('players').update({ photo_url: null }).eq('id', playerId)
   if (error) { alert('הסרת התמונה נכשלה — נסה שוב'); return false }
   return true
+}
+
+// ── עבודה במצב לא מקוון ────────────────────────────────────────────
+// שומרים עותק אחרון של הנתונים במכשיר כדי שהאפליקציה תיפתח ותציג משהו
+// גם בלי אינטרנט, ותור כתיבות ממתינות שמתמלא כשכתיבה לשרת נכשלת (חוסר
+// רשת/קליטה חלשה במגרש) ומתרוקן אוטומטית ברגע שיש חיבור שוב.
+const DATA_CACHE_KEY = 'kfy-data-cache-v1'
+const PENDING_KEY    = 'kfy-pending-writes-v1'
+
+const loadCachedData = () => {
+  try {
+    const raw = localStorage.getItem(DATA_CACHE_KEY)
+    return raw ? JSON.parse(raw) : null
+  } catch { return null }
+}
+const saveCachedData = (data) => {
+  try { localStorage.setItem(DATA_CACHE_KEY, JSON.stringify(data)) } catch {}
+}
+
+const loadPending = () => {
+  try { return JSON.parse(localStorage.getItem(PENDING_KEY)) || [] } catch { return [] }
+}
+const savePending = (list) => {
+  try { localStorage.setItem(PENDING_KEY, JSON.stringify(list)) } catch {}
+}
+
+const withTimeout = (promise, ms) => Promise.race([
+  promise,
+  new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), ms)),
+])
+
+// מבצע upsert לטבלה; אם זה נכשל או נתקע (בלי רשת, או קליטה חלשה שנראית
+// "מחוברת" אבל לא באמת עובדת) שומר אותו בתור מקומי לניסיון חוזר אוטומטי,
+// במקום לאבד את הסימון בשקט או להשאיר את המסך תקוע מחכה לרשת
+const writeOrQueue = async (table, payload, conflictKey) => {
+  const attempt = async () => sb.from(table).upsert(payload, conflictKey ? { onConflict: conflictKey } : undefined)
+  if (navigator.onLine) {
+    try {
+      const { error } = await withTimeout(attempt(), 6000)
+      if (!error) return { queued: false }
+    } catch (e) { /* timeout / network error — falls through to queue below */ }
+  }
+  const pending = loadPending()
+  pending.push({ id: crypto.randomUUID(), table, payload, conflictKey, ts: Date.now() })
+  savePending(pending)
+  return { queued: true }
+}
+
+// מנסה לשלוח מחדש כל מה שממתין בתור; מחזיר כמה הצליחו
+const flushPending = async () => {
+  const pending = loadPending()
+  if (pending.length === 0) return 0
+  const remaining = []
+  for (const item of pending) {
+    const { error } = await sb.from(item.table).upsert(item.payload, item.conflictKey ? { onConflict: item.conflictKey } : undefined)
+    if (error) remaining.push(item)
+  }
+  savePending(remaining)
+  return pending.length - remaining.length
 }
 
 function ImagePreviewModal({ src, onClose }) {
@@ -786,21 +850,21 @@ function SessionDetail({ session, players, attendance, onReload, onBack }) {
 
   const setStatus = async (playerId, status) => {
     setStatusMap(m => ({ ...m, [playerId]: status }))
-    const { error } = await sb.from('attendance').upsert(
+    const { queued } = await writeOrQueue(
+      'attendance',
       { session_id: session.id, player_id: playerId, status },
-      { onConflict: 'session_id,player_id' }
+      'session_id,player_id'
     )
-    if (error) alert('הסימון לא נשמר (בעיית חיבור) — נסה שוב')
-    onReload()
+    if (!queued) onReload()
   }
 
   const saveNote = async (playerId, note) => {
-    const { error } = await sb.from('attendance').upsert(
+    const { queued } = await writeOrQueue(
+      'attendance',
       { session_id: session.id, player_id: playerId, status: statusMap[playerId] || 'other', note },
-      { onConflict: 'session_id,player_id' }
+      'session_id,player_id'
     )
-    if (error) alert('ההערה לא נשמרה (בעיית חיבור) — נסה שוב')
-    onReload()
+    if (!queued) onReload()
   }
 
   const markAllPresent = async () => {
@@ -808,10 +872,9 @@ function SessionDetail({ session, players, attendance, onReload, onBack }) {
     if (unmarked.length === 0) return
     setStatusMap(m => { const n = { ...m }; unmarked.forEach(p => { n[p.id] = 'present' }); return n })
     const results = await Promise.all(unmarked.map(p =>
-      sb.from('attendance').upsert({ session_id: session.id, player_id: p.id, status: 'present' }, { onConflict: 'session_id,player_id' })
+      writeOrQueue('attendance', { session_id: session.id, player_id: p.id, status: 'present' }, 'session_id,player_id')
     ))
-    if (results.some(r => r.error)) alert('חלק מהסימונים לא נשמרו (בעיית חיבור) — בדוק ונסה שוב')
-    onReload()
+    if (results.some(r => !r.queued)) onReload()
   }
 
   // שמירה ידנית — הכל כבר נשמר אוטומטית בכל לחיצה, זה בעיקר לשקט נפשי:
@@ -820,18 +883,18 @@ function SessionDetail({ session, players, attendance, onReload, onBack }) {
     if (document.activeElement) document.activeElement.blur()
     const marked = roster.filter(p => statusMap[p.id])
     const results = await Promise.all(marked.map(p =>
-      sb.from('attendance').upsert(
+      writeOrQueue(
+        'attendance',
         { session_id: session.id, player_id: p.id, status: statusMap[p.id], note: noteMap[p.id] || null },
-        { onConflict: 'session_id,player_id' }
+        'session_id,player_id'
       )
     ))
-    onReload()
-    if (results.some(r => r.error)) {
-      alert('חלק מהנתונים לא נשמרו (בעיית חיבור) — בדוק חיבור לאינטרנט ונסה שוב')
-    } else {
-      setSaved(true)
-      setTimeout(() => setSaved(false), 2000)
+    if (results.some(r => !r.queued)) onReload()
+    if (results.some(r => r.queued)) {
+      alert('אין חיבור לאינטרנט כרגע — הסימונים נשמרו במכשיר ויסתנכרנו אוטומטית ברגע שתהיה רשת')
     }
+    setSaved(true)
+    setTimeout(() => setSaved(false), 2000)
   }
 
   const counts = { present: 0, late: 0, absent: 0, vacation: 0, sick: 0, other: 0 }
@@ -1690,25 +1753,50 @@ function App() {
   const [selectedSessionId, setSelectedSessionId] = useState(null)
   const [selectedMatchId, setSelectedMatchId] = useState(null)
   const [selectedPlayerId, setSelectedPlayerId] = useState(null)
-  const [data, setData] = useState(DEFAULT_DATA)
-  const [loading, setLoading] = useState(true)
+  const [data, setData] = useState(() => loadCachedData() || DEFAULT_DATA)
+  const [loading, setLoading] = useState(() => !loadCachedData())
+  const [isOnline, setIsOnline] = useState(navigator.onLine)
+  const [pendingCount, setPendingCount] = useState(() => loadPending().length)
 
   const reload = async () => {
-    const [pl, se, at, ma, li] = await Promise.all([
-      sb.from('players').select('*').order('name', { ascending: true }),
-      sb.from('sessions').select('*').order('date', { ascending: false }),
-      sb.from('attendance').select('*'),
-      sb.from('matches').select('*').order('date', { ascending: false }),
-      sb.from('lineup').select('*'),
-    ])
-    setData({
-      players: pl.data || [], sessions: se.data || [], attendance: at.data || [],
-      matches: ma.data || [], lineup: li.data || [],
-    })
-    setLoading(false)
+    try {
+      const [pl, se, at, ma, li] = await Promise.all([
+        sb.from('players').select('*').order('name', { ascending: true }),
+        sb.from('sessions').select('*').order('date', { ascending: false }),
+        sb.from('attendance').select('*'),
+        sb.from('matches').select('*').order('date', { ascending: false }),
+        sb.from('lineup').select('*'),
+      ])
+      const newData = {
+        players: pl.data || [], sessions: se.data || [], attendance: at.data || [],
+        matches: ma.data || [], lineup: li.data || [],
+      }
+      setData(newData)
+      saveCachedData(newData)
+    } catch (e) {
+      // אין רשת — ממשיכים להציג את מה שכבר יש (מהמכשיר)
+    } finally {
+      setLoading(false)
+      setPendingCount(loadPending().length)
+    }
   }
 
-  useEffect(() => { reload() }, [])
+  useEffect(() => {
+    flushPending().then(() => reload())
+    const onOnline = () => { setIsOnline(true); flushPending().then(n => { setPendingCount(loadPending().length); if (n > 0) reload() }) }
+    const onOffline = () => setIsOnline(false)
+    window.addEventListener('online', onOnline)
+    window.addEventListener('offline', onOffline)
+    const pendingPoll = setInterval(() => setPendingCount(loadPending().length), 4000)
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('sw.js').catch(() => {})
+    }
+    return () => {
+      window.removeEventListener('online', onOnline)
+      window.removeEventListener('offline', onOffline)
+      clearInterval(pendingPoll)
+    }
+  }, [])
 
   // מסמנים הרבה שחקנים ברצף (נוכחות, גרירה במגרש) — כל לחיצה כבר מתעדכנת
   // מיידית מקומית, אז אין טעם לרענן את כל הנתונים מהשרת בכל קליק בנפרד;
@@ -1737,6 +1825,12 @@ function App() {
     <div class="app-layout">
       <${Sidebar} activeTab=${activeTab} setActiveTab=${changeTab} />
       <main class="main-content">
+        ${(!isOnline || pendingCount > 0) && html`
+          <div class="offline-banner">
+            ${!isOnline ? '📴 אין חיבור לאינטרנט — עובד במצב לא מקוון' : '🔄 מסנכרן'}
+            ${pendingCount > 0 ? ` · ${pendingCount} שינויים ממתינים לסנכרון` : ''}
+          </div>
+        `}
         ${selectedPlayerId && data.players.find(p => p.id === selectedPlayerId) ? html`
           <${PlayerProfile}
             player=${data.players.find(p => p.id === selectedPlayerId)}
