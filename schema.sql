@@ -9,6 +9,7 @@ create table if not exists players (
   phone text,
   active boolean not null default true,
   photo_url text,
+  foot text check (foot in ('right', 'left', 'both')),
   created_at timestamptz not null default now()
 );
 

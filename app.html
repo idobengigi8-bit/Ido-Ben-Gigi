@@ -493,6 +493,7 @@ function ImagePreviewModal({ src, onClose }) {
 }
 
 const STATUS_LABELS = { present: 'נוכח', late: 'באיחור', absent: 'נעדר', vacation: 'חופשה', sick: 'מחלה/פציעה', other: 'אחר' }
+const FOOT_LABELS = { right: 'ימין', left: 'שמאל', both: 'שתי הרגליים' }
 const STATUS_BADGE   = { present: 'badge-present', late: 'badge-late', absent: 'badge-absent', vacation: 'badge-vacation', sick: 'badge-sick', other: 'badge-other' }
 
 // סטטוסים "מוצדקים" — לא נספרים לא לטובה ולא לרעה באחוז הנוכחות
@@ -680,7 +681,7 @@ function Dashboard({ players, sessions, attendance, onOpenSession, setActiveTab 
 }
 
 // ── Players ────────────────────────────────────────────────────────
-const EMPTY_PLAYER = { name: '', position: '', phone: '', active: true }
+const EMPTY_PLAYER = { name: '', position: '', phone: '', foot: '', active: true }
 
 function Players({ players, attendance, onReload, onOpenPlayer }) {
   const [filter, setFilter]       = useState('active')
@@ -701,14 +702,15 @@ function Players({ players, attendance, onReload, onOpenPlayer }) {
   const set = (field) => (e) => setForm(f => ({ ...f, [field]: field === 'active' ? e.target.checked : e.target.value }))
 
   const openAdd = () => { setForm(EMPTY_PLAYER); setEditId(null); setShowModal(true) }
-  const openEdit = (p, e) => { e.stopPropagation(); setForm({ name: p.name, position: p.position || '', phone: p.phone || '', active: p.active }); setEditId(p.id); setShowModal(true) }
+  const openEdit = (p, e) => { e.stopPropagation(); setForm({ name: p.name, position: p.position || '', phone: p.phone || '', foot: p.foot || '', active: p.active }); setEditId(p.id); setShowModal(true) }
 
   const handleSave = async () => {
     if (!form.name.trim()) return
+    const payload = { ...form, foot: form.foot || null }
     if (editId) {
-      await sb.from('players').update(form).eq('id', editId)
+      await sb.from('players').update(payload).eq('id', editId)
     } else {
-      await sb.from('players').insert(form)
+      await sb.from('players').insert(payload)
     }
     setShowModal(false)
     onReload()
@@ -812,6 +814,15 @@ function Players({ players, attendance, onReload, onOpenPlayer }) {
                 <label class="form-label">טלפון</label>
                 <input class="form-control" placeholder="050-0000000" value=${form.phone} onInput=${set('phone')} />
               </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">רגל חזקה</label>
+              <select class="form-control" value=${form.foot} onChange=${set('foot')}>
+                <option value="">לא צוין</option>
+                <option value="right">ימין</option>
+                <option value="left">שמאל</option>
+                <option value="both">שתי הרגליים</option>
+              </select>
             </div>
             <div class="form-group form-check">
               <input type="checkbox" id="active-check" checked=${form.active} onChange=${set('active')} />
@@ -1137,7 +1148,7 @@ function PlayerProfile({ player, sessions, attendance, onReload, onBack }) {
           : html`<div class="avatar-lg">${initials(player.name)}</div>`}
         <h1 class="page-title">${player.name}</h1>
         <p class="page-subtitle">
-          ${player.position || 'שחקן'}${player.phone ? ' · ' + player.phone : ''}
+          ${player.position || 'שחקן'}${player.foot ? ' · רגל ' + FOOT_LABELS[player.foot] : ''}${player.phone ? ' · ' + player.phone : ''}
           · <span class=${'badge ' + (player.active ? 'badge-active' : 'badge-inactive')}>${player.active ? 'פעיל' : 'לא פעיל'}</span>
         </p>
         <div style=${{ marginTop: 14, display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
