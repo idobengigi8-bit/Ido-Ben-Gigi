@@ -10,12 +10,17 @@ create table if not exists players (
   active boolean not null default true,
   photo_url text,
   foot text check (foot in ('right', 'left', 'both')),
+  unavailable_reason text check (unavailable_reason in ('injury', 'sick', 'vacation', 'other')),
+  unavailable_until date,
+  unavailable_note text,
   created_at timestamptz not null default now()
 );
 
 create table if not exists sessions (
   id uuid primary key default gen_random_uuid(),
   date date not null,
+  time text,
+  location text,
   note text,
   created_at timestamptz not null default now()
 );

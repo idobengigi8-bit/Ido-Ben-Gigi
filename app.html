@@ -204,6 +204,14 @@
       text-align: center; padding: 9px 16px;
     }
 
+    .status-banner {
+      background: var(--red-light); color: var(--red); border-radius: 12px; padding: 14px 18px;
+      font-size: 14px; font-weight: 600; margin: 16px 0; display: flex; align-items: center;
+      justify-content: space-between; gap: 10px; flex-wrap: wrap;
+    }
+    .status-banner-text { font-weight: 600; }
+    .status-banner-note { font-weight: 400; font-size: 13px; opacity: 0.85; margin-top: 2px; }
+
     /* Pitch / lineup builder */
     .pitch-wrap { max-width: 420px; margin: 0 auto; }
     .pitch {
@@ -419,6 +427,37 @@ const deletePlayerPhoto = async (playerId) => {
   return true
 }
 
+// ── יומן (ICS) ─────────────────────────────────────────────────────
+const icsEscape = (s) => String(s || '').replace(/[\\,;]/g, m => '\\' + m).replace(/\n/g, '\\n')
+
+const sessionsToICS = (sessions) => {
+  const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Kfar Yona Noar//Attendance//HE', 'CALSCALE:GREGORIAN']
+  sessions.forEach(s => {
+    const time = s.time || '18:00'
+    const start = new Date(`${s.date}T${time}:00`)
+    const end = new Date(start.getTime() + 90 * 60000)
+    const fmt = (d) => d.getFullYear() + String(d.getMonth() + 1).padStart(2, '0') + String(d.getDate()).padStart(2, '0')
+      + 'T' + String(d.getHours()).padStart(2, '0') + String(d.getMinutes()).padStart(2, '0') + '00'
+    lines.push(
+      'BEGIN:VEVENT',
+      `UID:kfy-session-${s.id}@kfaryonanoar`,
+      `DTSTART:${fmt(start)}`,
+      `DTEND:${fmt(end)}`,
+      `SUMMARY:${icsEscape('אימון כפר יונה נוער')}`,
+      s.location ? `LOCATION:${icsEscape(s.location)}` : '',
+      s.note ? `DESCRIPTION:${icsEscape(s.note)}` : '',
+      'END:VEVENT'
+    )
+  })
+  lines.push('END:VCALENDAR')
+  return lines.filter(Boolean).join('\r\n')
+}
+
+const openICS = (sessions) => {
+  const ics = sessionsToICS(sessions)
+  window.open('data:text/calendar;charset=utf-8,' + encodeURIComponent(ics), '_blank')
+}
+
 // ── עבודה במצב לא מקוון ────────────────────────────────────────────
 // שומרים עותק אחרון של הנתונים במכשיר כדי שהאפליקציה תיפתח ותציג משהו
 // גם בלי אינטרנט, ותור כתיבות ממתינות שמתמלא כשכתיבה לשרת נכשלת (חוסר
@@ -494,6 +533,7 @@ function ImagePreviewModal({ src, onClose }) {
 
 const STATUS_LABELS = { present: 'נוכח', late: 'באיחור', absent: 'נעדר', vacation: 'חופשה', sick: 'מחלה/פציעה', other: 'אחר' }
 const FOOT_LABELS = { right: 'ימין', left: 'שמאל', both: 'שתי הרגליים' }
+const UNAVAILABLE_LABELS = { injury: 'פציעה', sick: 'מחלה', vacation: 'חופשה', other: 'אחר' }
 const STATUS_BADGE   = { present: 'badge-present', late: 'badge-late', absent: 'badge-absent', vacation: 'badge-vacation', sick: 'badge-sick', other: 'badge-other' }
 
 // סטטוסים "מוצדקים" — לא נספרים לא לטובה ולא לרעה באחוז הנוכחות
@@ -559,7 +599,7 @@ function Sidebar({ activeTab, setActiveTab }) {
 }
 
 // ── Dashboard ──────────────────────────────────────────────────────
-function Dashboard({ players, sessions, attendance, onOpenSession, setActiveTab }) {
+function Dashboard({ players, sessions, attendance, onOpenSession, onOpenPlayer, setActiveTab }) {
   const activePlayers = players.filter(p => p.active)
   const pct = pctOf(attendance)
   const recent = [...sessions].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 5)
@@ -575,6 +615,8 @@ function Dashboard({ players, sessions, attendance, onOpenSession, setActiveTab 
     .map(p => ({ player: p, streak: consecutiveMisses(p.id, sessions, attendance) }))
     .filter(r => r.streak >= 2)
     .sort((a, b) => b.streak - a.streak)
+
+  const unavailableNow = activePlayers.filter(p => p.unavailable_reason)
 
   return html`
     <div>
@@ -603,6 +645,26 @@ function Dashboard({ players, sessions, attendance, onOpenSession, setActiveTab 
           <div class="stat-value" style=${{ fontSize: 17 }}>${recent[0] ? fmtDate(recent[0].date) : '—'}</div>
         </div>
       </div>
+
+      ${unavailableNow.length > 0 && html`
+        <div class="card" style=${{ marginBottom: 28, borderColor: 'var(--red)' }}>
+          <div class="section-header">
+            <h2 class="section-title">🚑 לא זמינים כרגע</h2>
+          </div>
+          ${unavailableNow.map(p => html`
+            <div key=${p.id} class="player-row clickable" onClick=${() => onOpenPlayer(p.id)}>
+              <div class="player-row-info">
+                <div class="player-row-name">${p.name}</div>
+                ${p.unavailable_note && html`<div class="player-row-pos">${p.unavailable_note}</div>`}
+              </div>
+              <div style=${{ fontSize: 13, color: 'var(--gray-500)' }}>
+                <span class="badge badge-absent">${UNAVAILABLE_LABELS[p.unavailable_reason]}</span>
+                ${p.unavailable_until ? ` · חוזר ${fmtDate(p.unavailable_until)}` : ''}
+              </div>
+            </div>
+          `)}
+        </div>
+      `}
 
       ${needsAttention.length > 0 && html`
         <div class="card" style=${{ marginBottom: 28, borderColor: 'var(--amber)' }}>
@@ -787,7 +849,10 @@ function Players({ players, attendance, onReload, onOpenPlayer }) {
                       <td>${p.foot ? FOOT_LABELS[p.foot] : '—'}</td>
                       <td>${p.phone || '—'}</td>
                       <td><span class=${pctClass(pct)}>${pct === null ? 'אין נתונים' : pct + '%'}</span></td>
-                      <td><span class=${'badge ' + (p.active ? 'badge-active' : 'badge-inactive')}>${p.active ? 'פעיל' : 'לא פעיל'}</span></td>
+                      <td>
+                        <span class=${'badge ' + (p.active ? 'badge-active' : 'badge-inactive')}>${p.active ? 'פעיל' : 'לא פעיל'}</span>
+                        ${p.unavailable_reason && html`<span class="badge badge-absent" style=${{ marginRight: 4 }}>🚑 ${UNAVAILABLE_LABELS[p.unavailable_reason]}</span>`}
+                      </td>
                       <td>
                         <div style=${{ display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
                           <button class="btn-ghost" onClick=${e => openEdit(p, e)}>✏️</button>
@@ -934,8 +999,8 @@ function SessionDetail({ session, players, attendance, onReload, onBack }) {
       <div class="page-header">
         <div class="page-header-row">
           <div>
-            <h1 class="page-title">${fmtDate(session.date)}</h1>
-            <p class="page-subtitle">${session.note || 'סימון נוכחות לאימון'}</p>
+            <h1 class="page-title">${fmtDate(session.date)}${session.time ? ' · ' + session.time : ''}</h1>
+            <p class="page-subtitle">${[session.location, session.note].filter(Boolean).join(' · ') || 'סימון נוכחות לאימון'}</p>
           </div>
           <div style=${{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
             <button class="btn btn-outline" onClick=${markAllPresent}>סמן הכל כנוכחים</button>
@@ -998,7 +1063,7 @@ function SessionDetail({ session, players, attendance, onReload, onBack }) {
 }
 
 // ── Sessions ───────────────────────────────────────────────────────
-const EMPTY_SESSION = { date: '', note: '' }
+const EMPTY_SESSION = { date: '', time: '', location: '', note: '' }
 
 function Sessions({ sessions, players, attendance, selectedId, onSelect, onReload, onReloadFast }) {
   const [showModal, setShowModal] = useState(false)
@@ -1013,8 +1078,8 @@ function Sessions({ sessions, players, attendance, selectedId, onSelect, onReloa
   const sorted = [...sessions].sort((a, b) => new Date(b.date) - new Date(a.date))
   const set = (field) => (e) => setForm(f => ({ ...f, [field]: e.target.value }))
 
-  const openAdd = () => { setForm({ date: today(), note: '' }); setEditId(null); setShowModal(true) }
-  const openEdit = (s, e) => { e.stopPropagation(); setForm({ date: s.date, note: s.note || '' }); setEditId(s.id); setShowModal(true) }
+  const openAdd = () => { setForm({ date: today(), time: '', location: '', note: '' }); setEditId(null); setShowModal(true) }
+  const openEdit = (s, e) => { e.stopPropagation(); setForm({ date: s.date, time: s.time || '', location: s.location || '', note: s.note || '' }); setEditId(s.id); setShowModal(true) }
 
   const handleSave = async () => {
     if (!form.date) return
@@ -1046,7 +1111,12 @@ function Sessions({ sessions, players, attendance, selectedId, onSelect, onReloa
             <h1 class="page-title">אימונים</h1>
             <p class="page-subtitle">לחץ על אימון כדי לסמן נוכחות</p>
           </div>
-          <button class="btn btn-primary" onClick=${openAdd}>+ אימון חדש</button>
+          <div style=${{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            ${sorted.length > 0 && html`
+              <button class="btn btn-outline" onClick=${() => openICS(sorted.filter(s => s.date >= today()))}>📅 ייצוא ליומן</button>
+            `}
+            <button class="btn btn-primary" onClick=${openAdd}>+ אימון חדש</button>
+          </div>
         </div>
       </div>
 
@@ -1060,7 +1130,7 @@ function Sessions({ sessions, players, attendance, selectedId, onSelect, onReloa
           <div class="table-wrapper">
             <table>
               <thead>
-                <tr><th>תאריך</th><th>הערה</th><th>נוכחים</th><th>אחוז</th><th></th></tr>
+                <tr><th>תאריך</th><th>שעה</th><th>מיקום</th><th>הערה</th><th>נוכחים</th><th>אחוז</th><th></th></tr>
               </thead>
               <tbody>
                 ${sorted.map(s => {
@@ -1070,11 +1140,14 @@ function Sessions({ sessions, players, attendance, selectedId, onSelect, onReloa
                   return html`
                     <tr key=${s.id} class="clickable" onClick=${() => onSelect(s.id)}>
                       <td class="td-bold">${fmtDate(s.date)}</td>
+                      <td>${s.time || '—'}</td>
+                      <td><div class="td-desc">${s.location || '—'}</div></td>
                       <td><div class="td-desc">${s.note || '—'}</div></td>
                       <td>${records.length ? `${attended}/${records.length}` : '—'}</td>
                       <td><span class=${pctClass(sPct)}>${sPct === null ? '—' : sPct + '%'}</span></td>
                       <td>
                         <div style=${{ display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
+                          <button class="btn-ghost" onClick=${e => { e.stopPropagation(); openICS([s]) }} title="הוסף ליומן">📅</button>
                           <button class="btn-ghost" onClick=${e => openEdit(s, e)}>✏️</button>
                           <button class="btn-danger" onClick=${e => handleDelete(s.id, e)}>✕</button>
                         </div>
@@ -1092,9 +1165,19 @@ function Sessions({ sessions, players, attendance, selectedId, onSelect, onReloa
         <div class="modal-overlay" onClick=${e => e.target === e.currentTarget && setShowModal(false)}>
           <div class="modal">
             <h2 class="modal-title">${editId ? 'עריכת אימון' : 'אימון חדש'}</h2>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">תאריך *</label>
+                <input type="date" class="form-control" value=${form.date} onInput=${set('date')} />
+              </div>
+              <div class="form-group">
+                <label class="form-label">שעה</label>
+                <input type="time" class="form-control" value=${form.time} onInput=${set('time')} />
+              </div>
+            </div>
             <div class="form-group">
-              <label class="form-label">תאריך *</label>
-              <input type="date" class="form-control" value=${form.date} onInput=${set('date')} />
+              <label class="form-label">מיקום</label>
+              <input class="form-control" placeholder="לדוגמה: מגרש כפר יונה" value=${form.location} onInput=${set('location')} />
             </div>
             <div class="form-group">
               <label class="form-label">הערה</label>
@@ -1146,6 +1229,33 @@ function PlayerProfile({ player, sessions, attendance, onReload, onBack }) {
     onReload()
   }
 
+  const [showUnavailForm, setShowUnavailForm] = useState(false)
+  const [unavailForm, setUnavailForm] = useState({ reason: 'injury', until: '', note: '' })
+
+  const openUnavailForm = () => {
+    setUnavailForm({
+      reason: player.unavailable_reason || 'injury',
+      until: player.unavailable_until || '',
+      note: player.unavailable_note || '',
+    })
+    setShowUnavailForm(true)
+  }
+
+  const saveUnavailable = async () => {
+    await sb.from('players').update({
+      unavailable_reason: unavailForm.reason,
+      unavailable_until: unavailForm.until || null,
+      unavailable_note: unavailForm.note || null,
+    }).eq('id', player.id)
+    setShowUnavailForm(false)
+    onReload()
+  }
+
+  const clearUnavailable = async () => {
+    await sb.from('players').update({ unavailable_reason: null, unavailable_until: null, unavailable_note: null }).eq('id', player.id)
+    onReload()
+  }
+
   return html`
     <div>
       <button class="back-link" onClick=${onBack}>→ חזרה</button>
@@ -1168,6 +1278,54 @@ function PlayerProfile({ player, sessions, attendance, onReload, onBack }) {
           <input ref=${fileInputRef} type="file" accept="image/*" style=${{ display: 'none' }} onChange=${handlePhotoChange} />
         </div>
       </div>
+
+      ${player.unavailable_reason ? html`
+        <div class="status-banner">
+          <div>
+            <div class="status-banner-text">
+              🚑 ${UNAVAILABLE_LABELS[player.unavailable_reason]}${player.unavailable_until ? ` — צפוי לחזור ב-${fmtDate(player.unavailable_until)}` : ''}
+            </div>
+            ${player.unavailable_note && html`<div class="status-banner-note">${player.unavailable_note}</div>`}
+          </div>
+          <div style=${{ display: 'flex', gap: 8 }}>
+            <button class="btn btn-outline" style=${{ background: 'var(--white)' }} onClick=${openUnavailForm}>עריכה</button>
+            <button class="btn btn-outline" style=${{ background: 'var(--white)' }} onClick=${clearUnavailable}>✓ סמן כזמין</button>
+          </div>
+        </div>
+      ` : html`
+        <div style=${{ textAlign: 'center', marginTop: 4 }}>
+          <button class="btn btn-outline" onClick=${openUnavailForm}>🚑 סמן כלא זמין (פציעה/מחלה/חופשה)</button>
+        </div>
+      `}
+
+      ${showUnavailForm && html`
+        <div class="modal-overlay" onClick=${e => e.target === e.currentTarget && setShowUnavailForm(false)}>
+          <div class="modal">
+            <h2 class="modal-title">סטטוס זמינות</h2>
+            <div class="form-group">
+              <label class="form-label">סיבה</label>
+              <select class="form-control" value=${unavailForm.reason} onChange=${e => setUnavailForm(f => ({ ...f, reason: e.target.value }))}>
+                <option value="injury">פציעה</option>
+                <option value="sick">מחלה</option>
+                <option value="vacation">חופשה</option>
+                <option value="other">אחר</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">צפוי לחזור (לא חובה)</label>
+              <input type="date" class="form-control" value=${unavailForm.until} onInput=${e => setUnavailForm(f => ({ ...f, until: e.target.value }))} />
+            </div>
+            <div class="form-group">
+              <label class="form-label">הערה</label>
+              <input class="form-control" placeholder="פרטים נוספים..." value=${unavailForm.note} onInput=${e => setUnavailForm(f => ({ ...f, note: e.target.value }))} />
+            </div>
+            <div class="form-actions">
+              <button class="btn btn-primary" onClick=${saveUnavailable}>שמור</button>
+              <button class="btn btn-outline" onClick=${() => setShowUnavailForm(false)}>ביטול</button>
+            </div>
+          </div>
+        </div>
+      `}
 
       <div class="stats-grid">
         <div class="stat-card black">
@@ -1877,6 +2035,7 @@ function App() {
               sessions=${data.sessions}
               attendance=${data.attendance}
               onOpenSession=${openSession}
+              onOpenPlayer=${setSelectedPlayerId}
               setActiveTab=${changeTab}
             />`}
           ${activeTab === 'players' && html`
