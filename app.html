@@ -1427,7 +1427,7 @@ function Report({ players, sessions, attendance, onOpenPlayer }) {
       const pct      = pctOf(records)
       return { player: p, marked: records.length, present, late, absent, vacation, sick, pct }
     })
-    .sort((a, b) => (b.pct ?? -1) - (a.pct ?? -1))
+    .sort((a, b) => (b.pct ?? -1) - (a.pct ?? -1) || a.player.name.localeCompare(b.player.name, 'he'))
 
   const exportCsv = () => {
     const header = ['שם', 'תפקיד', 'אימונים שסומנו', 'נוכח', 'איחור', 'נעדר', 'חופשה', 'מחלה/פציעה', 'אחוז נוכחות']
@@ -1444,9 +1444,10 @@ function Report({ players, sessions, attendance, onOpenPlayer }) {
     URL.revokeObjectURL(url)
   }
 
-  // מטריצה: כל שחקן מול כל אימון, בדף/קובץ אחד מרוכז
+  // מטריצה: כל שחקן מול כל אימון, בדף/קובץ אחד מרוכז — באותו סדר של הדוח
+  // הראשי (אחוז נוכחות מהגבוה לנמוך), לא לפי א-ב
   const sortedSessions = [...sessions].sort((a, b) => new Date(a.date) - new Date(b.date))
-  const sortedPlayers  = players.filter(matchesSearch).sort((a, b) => a.name.localeCompare(b.name, 'he'))
+  const sortedPlayers  = rows.map(r => r.player)
   const cellRecord = (playerId, sessionId) => attendance.find(a => a.player_id === playerId && a.session_id === sessionId)
 
   const exportMatrixCsv = () => {
