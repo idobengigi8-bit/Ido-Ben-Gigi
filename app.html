@@ -575,6 +575,7 @@ function Sidebar({ activeTab, setActiveTab }) {
     { id: 'sessions',  label: 'אימונים',       icon: '◎' },
     { id: 'report',    label: 'דוח נוכחות',    icon: '▤' },
     { id: 'matches',   label: 'הרכב למשחק',    icon: '⚽' },
+    { id: 'equipment', label: 'ציוד ותשלום',   icon: '👕' },
   ]
   return html`
     <aside class="sidebar">
@@ -909,6 +910,105 @@ function Players({ players, attendance, onReload, onOpenPlayer }) {
           </div>
         </div>
       `}
+    </div>
+  `
+}
+
+// ── ציוד ותשלום ────────────────────────────────────────────────────
+const JERSEY_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL']
+
+function Equipment({ players, onReload }) {
+  const [search, setSearch] = useState('')
+  const [fields, setFields] = useState({})
+
+  // מאתחלים מקומית פעם אחת בלבד (לא בכל רענון) — אותו תיקון שכבר עשינו
+  // לסימון נוכחות, כדי שהקלדה בשדה לא "תיקפץ" כשמגיע רענון נתונים ברקע
+  useEffect(() => {
+    const f = {}
+    players.forEach(p => {
+      f[p.id] = { jersey_number: p.jersey_number || '', jersey_size: p.jersey_size || '', paid: !!p.paid }
+    })
+    setFields(f)
+  }, [])
+
+  const filtered = players
+    .filter(p => p.active)
+    .filter(p => p.name.toLowerCase().includes(search.trim().toLowerCase()))
+    .sort((a, b) => a.name.localeCompare(b.name, 'he'))
+
+  const paidCount = filtered.filter(p => fields[p.id]?.paid).length
+
+  const setField = (playerId, key, value) => setFields(f => ({ ...f, [playerId]: { ...f[playerId], [key]: value } }))
+
+  const saveField = async (playerId, key, value) => {
+    await sb.from('players').update({ [key]: value }).eq('id', playerId)
+    onReload()
+  }
+
+  const togglePaid = (p) => {
+    const next = !(fields[p.id]?.paid)
+    setField(p.id, 'paid', next)
+    saveField(p.id, 'paid', next)
+  }
+
+  return html`
+    <div>
+      <div class="page-header">
+        <h1 class="page-title">ציוד ותשלום</h1>
+        <p class="page-subtitle">מספר חולצה, מידה, וסטטוס תשלום — ${paidCount} מתוך ${filtered.length} שילמו</p>
+      </div>
+
+      <div class="form-group" style=${{ maxWidth: 320 }}>
+        <input class="form-control" placeholder="🔍 חיפוש שחקן לפי שם..." value=${search} onInput=${e => setSearch(e.target.value)} />
+      </div>
+
+      <div class="card">
+        ${filtered.length === 0 ? html`
+          <div class="empty-state">
+            <div class="empty-icon">👕</div>
+            <div class="empty-text">${search ? 'אין שחקן שתואם לחיפוש' : 'אין שחקנים פעילים ברשימה'}</div>
+          </div>
+        ` : html`
+          <div class="table-wrapper">
+            <table>
+              <thead>
+                <tr><th>שם</th><th>מספר חולצה</th><th>מידה</th><th>שולם</th></tr>
+              </thead>
+              <tbody>
+                ${filtered.map(p => html`
+                  <tr key=${p.id}>
+                    <td class="td-bold">${p.name}</td>
+                    <td>
+                      <input
+                        class="form-control" style=${{ width: 90 }} placeholder="—"
+                        value=${fields[p.id]?.jersey_number ?? ''}
+                        onInput=${e => setField(p.id, 'jersey_number', e.target.value)}
+                        onBlur=${e => saveField(p.id, 'jersey_number', e.target.value)}
+                      />
+                    </td>
+                    <td>
+                      <select
+                        class="form-control" style=${{ width: 100 }}
+                        value=${fields[p.id]?.jersey_size ?? ''}
+                        onChange=${e => { setField(p.id, 'jersey_size', e.target.value); saveField(p.id, 'jersey_size', e.target.value) }}
+                      >
+                        <option value="">—</option>
+                        ${JERSEY_SIZES.map(sz => html`<option value=${sz}>${sz}</option>`)}
+                      </select>
+                    </td>
+                    <td style=${{ textAlign: 'center' }}>
+                      <input
+                        type="checkbox" checked=${!!fields[p.id]?.paid} onChange=${() => togglePaid(p)}
+                        style=${{ width: 22, height: 22, cursor: 'pointer' }}
+                      />
+                    </td>
+                  </tr>
+                `)}
+              </tbody>
+            </table>
+          </div>
+        `}
+      </div>
     </div>
   `
 }
@@ -2082,6 +2182,8 @@ function App() {
               onReload=${reload}
               onReloadFast=${debouncedReload}
             />`}
+          ${activeTab === 'equipment' && html`
+            <${Equipment} players=${data.players} onReload=${reload} />`}
         `}
       </main>
     </div>

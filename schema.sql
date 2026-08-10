@@ -13,6 +13,9 @@ create table if not exists players (
   unavailable_reason text check (unavailable_reason in ('injury', 'sick', 'vacation', 'other')),
   unavailable_until date,
   unavailable_note text,
+  jersey_number text,
+  jersey_size text,
+  paid boolean not null default false,
   created_at timestamptz not null default now()
 );
 
