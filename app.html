@@ -358,6 +358,26 @@
 </head>
 <body>
 <div id="root"></div>
+<div id="load-fallback" style="display:none;position:fixed;inset:0;background:#fff;flex-direction:column;align-items:center;justify-content:center;font-family:Heebo,sans-serif;padding:24px;text-align:center;gap:16px;z-index:9999;">
+  <div style="font-size:16px;color:#3f3f46">האפליקציה לא הצליחה להיטען — כנראה בעיית חיבור לאינטרנט</div>
+  <button onclick="location.reload()" style="padding:10px 28px;border-radius:8px;border:none;background:#111;color:#fff;font-size:15px;cursor:pointer">נסה שוב</button>
+</div>
+<script>
+  // רשת ה-CDN שהאפליקציה טוענת ממנה (esm.sh) לפעמים "נתקעת" באמצע בקליטה
+  // חלשה בלי שגיאה ברורה, ומשאירה מסך לבן ריק בלי שום הסבר. אחרי 12 שניות
+  // בלי שהאפליקציה עלתה בפועל, ואם יש שגיאת טעינת סקריפט, מציגים הודעה
+  // וכפתור לניסיון חוזר במקום מסך תקוע.
+  window.__appLoadTimer = setTimeout(function () {
+    if (!document.getElementById('root').firstChild) {
+      document.getElementById('load-fallback').style.display = 'flex';
+    }
+  }, 12000);
+  window.addEventListener('error', function () {
+    if (!document.getElementById('root').firstChild) {
+      document.getElementById('load-fallback').style.display = 'flex';
+    }
+  }, true);
+</script>
 
 <script type="module">
 import { h, render } from 'https://esm.sh/preact@10.19.3'
@@ -2121,13 +2141,16 @@ function App() {
 
   const reload = async () => {
     try {
-      const [pl, se, at, ma, li] = await Promise.all([
+      // עטיפה ב-timeout: בקליטה חלשה הבקשה יכולה "להיתקע" בלי להיכשל ובלי
+      // להצליח, ואז מסך הטעינה נשאר תקוע לנצח. אחרי 10 שניות מוותרים ועוברים
+      // להציג את מה שכבר יש במכשיר, במקום להשאיר את המשתמש מול מסך קפוא.
+      const [pl, se, at, ma, li] = await withTimeout(Promise.all([
         sb.from('players').select('*').order('name', { ascending: true }),
         sb.from('sessions').select('*').order('date', { ascending: false }),
         sb.from('attendance').select('*'),
         sb.from('matches').select('*').order('date', { ascending: false }),
         sb.from('lineup').select('*'),
-      ])
+      ]), 10000)
       const newData = {
         players: pl.data || [], sessions: se.data || [], attendance: at.data || [],
         matches: ma.data || [], lineup: li.data || [],
@@ -2135,7 +2158,8 @@ function App() {
       setData(newData)
       saveCachedData(newData)
     } catch (e) {
-      // אין רשת — ממשיכים להציג את מה שכבר יש (מהמכשיר)
+      // אין רשת, או שהבקשה נתקעה מעבר לזמן הסביר — ממשיכים להציג את מה
+      // שכבר יש (מהמכשיר) במקום להשאיר את המסך תקוע במסך טעינה
     } finally {
       setLoading(false)
       setPendingCount(loadPending().length)
@@ -2242,6 +2266,7 @@ function App() {
   `
 }
 
+clearTimeout(window.__appLoadTimer)
 render(html`<${App} />`, document.getElementById('root'))
 </script>
 </body>
