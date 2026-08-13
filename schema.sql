@@ -16,6 +16,7 @@ create table if not exists players (
   jersey_number text,
   jersey_size text,
   paid boolean not null default false,
+  reminder_sent boolean not null default false,
   created_at timestamptz not null default now()
 );
 

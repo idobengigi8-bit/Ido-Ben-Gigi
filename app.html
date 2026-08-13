@@ -929,7 +929,7 @@ function Equipment({ players, onReload }) {
   useEffect(() => {
     const f = {}
     players.forEach(p => {
-      f[p.id] = { jersey_number: p.jersey_number || '', jersey_size: p.jersey_size || '', paid: !!p.paid }
+      f[p.id] = { jersey_number: p.jersey_number || '', jersey_size: p.jersey_size || '', paid: !!p.paid, reminder_sent: !!p.reminder_sent }
     })
     setFields(f)
   }, [])
@@ -960,6 +960,12 @@ function Equipment({ players, onReload }) {
     const next = !(fields[p.id]?.paid)
     setField(p.id, 'paid', next)
     saveField(p.id, 'paid', next)
+  }
+
+  const toggleReminder = (p) => {
+    const next = !(fields[p.id]?.reminder_sent)
+    setField(p.id, 'reminder_sent', next)
+    saveField(p.id, 'reminder_sent', next)
   }
 
   const exportImage = async () => {
@@ -996,7 +1002,7 @@ function Equipment({ players, onReload }) {
           <div class="table-wrapper">
             <table>
               <thead>
-                <tr><th>שם</th><th>מספר חולצה</th><th>מידה</th><th>שולם</th></tr>
+                <tr><th>שם</th><th>מספר חולצה</th><th>מידה</th><th>תזכורת נשלחה</th><th>שולם</th></tr>
               </thead>
               <tbody>
                 ${filtered.map(p => html`
@@ -1025,6 +1031,12 @@ function Equipment({ players, onReload }) {
                         <option value="">—</option>
                         ${JERSEY_SIZES.map(sz => html`<option value=${sz}>${sz}</option>`)}
                       </select>
+                    </td>
+                    <td style=${{ textAlign: 'center' }}>
+                      <input
+                        type="checkbox" checked=${!!fields[p.id]?.reminder_sent} onChange=${() => toggleReminder(p)}
+                        style=${{ width: 22, height: 22, cursor: 'pointer' }}
+                      />
                     </td>
                     <td style=${{ textAlign: 'center' }}>
                       <input
