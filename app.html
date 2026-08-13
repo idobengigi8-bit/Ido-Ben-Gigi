@@ -104,6 +104,8 @@
 
     /* Tables */
     .table-wrapper { overflow-x: auto; }
+    .equipment-totals { display: flex; align-items: center; justify-content: space-between; padding: 16px 14px; border-top: 2px solid var(--gray-100); margin-top: 4px; font-size: 15px; color: var(--gray-600); }
+    .equipment-totals strong { font-size: 20px; color: var(--black); }
     table { width: 100%; border-collapse: collapse; }
     thead th { text-align: right; padding: 10px 14px; font-size: 11px; font-weight: 600; color: var(--gray-400); text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid var(--gray-100); }
     tbody tr { border-bottom: 1px solid var(--gray-100); transition: background 0.1s; }
@@ -916,6 +918,7 @@ function Players({ players, attendance, onReload, onOpenPlayer }) {
 
 // ── ציוד ותשלום ────────────────────────────────────────────────────
 const JERSEY_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL']
+const PAYMENT_AMOUNT = 350
 
 function Equipment({ players, onReload }) {
   const [search, setSearch] = useState('')
@@ -940,6 +943,7 @@ function Equipment({ players, onReload }) {
     .sort((a, b) => a.name.localeCompare(b.name, 'he'))
 
   const paidCount = filtered.filter(p => fields[p.id]?.paid).length
+  const totalIncome = paidCount * PAYMENT_AMOUNT
 
   // מספרים שכבר תפוסים על ידי שחקנים אחרים — כדי למנוע כפילויות
   const numberOwner = {}
@@ -1048,6 +1052,10 @@ function Equipment({ players, onReload }) {
                 `)}
               </tbody>
             </table>
+          </div>
+          <div class="equipment-totals">
+            <span>סה"כ הכנסות (${paidCount} × ₪${PAYMENT_AMOUNT})</span>
+            <strong>₪${totalIncome.toLocaleString()}</strong>
           </div>
         `}
       </div>
