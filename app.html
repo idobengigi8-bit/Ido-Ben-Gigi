@@ -920,6 +920,9 @@ const JERSEY_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL']
 function Equipment({ players, onReload }) {
   const [search, setSearch] = useState('')
   const [fields, setFields] = useState({})
+  const captureRef = useRef(null)
+  const [previewImg, setPreviewImg] = useState(null)
+  const [exporting, setExporting] = useState(false)
 
   // מאתחלים מקומית פעם אחת בלבד (לא בכל רענון) — אותו תיקון שכבר עשינו
   // לסימון נוכחות, כדי שהקלדה בשדה לא "תיקפץ" כשמגיע רענון נתונים ברקע
@@ -938,6 +941,14 @@ function Equipment({ players, onReload }) {
 
   const paidCount = filtered.filter(p => fields[p.id]?.paid).length
 
+  // מספרים שכבר תפוסים על ידי שחקנים אחרים — כדי למנוע כפילויות
+  const numberOwner = {}
+  filtered.forEach(pl => {
+    const n = fields[pl.id]?.jersey_number
+    if (n) numberOwner[n] = pl.id
+  })
+  const allNumbers = Array.from({ length: 99 }, (_, i) => String(i + 1))
+
   const setField = (playerId, key, value) => setFields(f => ({ ...f, [playerId]: { ...f[playerId], [key]: value } }))
 
   const saveField = async (playerId, key, value) => {
@@ -951,18 +962,31 @@ function Equipment({ players, onReload }) {
     saveField(p.id, 'paid', next)
   }
 
+  const exportImage = async () => {
+    setExporting(true)
+    try { setPreviewImg(await captureImage(captureRef.current)) }
+    finally { setExporting(false) }
+  }
+
   return html`
     <div>
       <div class="page-header">
-        <h1 class="page-title">ציוד ותשלום</h1>
-        <p class="page-subtitle">מספר חולצה, מידה, וסטטוס תשלום — ${paidCount} מתוך ${filtered.length} שילמו</p>
+        <div class="page-header-row">
+          <div>
+            <h1 class="page-title">ציוד ותשלום</h1>
+            <p class="page-subtitle">מספר חולצה, מידה, וסטטוס תשלום — ${paidCount} מתוך ${filtered.length} שילמו</p>
+          </div>
+          ${filtered.length > 0 && html`
+            <button class="btn btn-primary" onClick=${exportImage}>${exporting ? 'מכין קובץ...' : '📄 ייצוא ל-PDF'}</button>
+          `}
+        </div>
       </div>
 
       <div class="form-group" style=${{ maxWidth: 320 }}>
         <input class="form-control" placeholder="🔍 חיפוש שחקן לפי שם..." value=${search} onInput=${e => setSearch(e.target.value)} />
       </div>
 
-      <div class="card">
+      <div class="card" ref=${captureRef}>
         ${filtered.length === 0 ? html`
           <div class="empty-state">
             <div class="empty-icon">👕</div>
@@ -979,12 +1003,18 @@ function Equipment({ players, onReload }) {
                   <tr key=${p.id}>
                     <td class="td-bold">${p.name}</td>
                     <td>
-                      <input
-                        class="form-control" style=${{ width: 90 }} placeholder="—"
+                      <select
+                        class="form-control" style=${{ width: 90 }}
                         value=${fields[p.id]?.jersey_number ?? ''}
-                        onInput=${e => setField(p.id, 'jersey_number', e.target.value)}
-                        onBlur=${e => saveField(p.id, 'jersey_number', e.target.value)}
-                      />
+                        onChange=${e => { setField(p.id, 'jersey_number', e.target.value); saveField(p.id, 'jersey_number', e.target.value) }}
+                      >
+                        <option value="">—</option>
+                        ${allNumbers.map(n => html`
+                          <option value=${n} disabled=${numberOwner[n] && numberOwner[n] !== p.id}>
+                            ${n}${numberOwner[n] && numberOwner[n] !== p.id ? ' (תפוס)' : ''}
+                          </option>
+                        `)}
+                      </select>
                     </td>
                     <td>
                       <select
@@ -1009,6 +1039,8 @@ function Equipment({ players, onReload }) {
           </div>
         `}
       </div>
+
+      ${previewImg && html`<${ImagePreviewModal} src=${previewImg} onClose=${() => setPreviewImg(null)} />`}
     </div>
   `
 }
